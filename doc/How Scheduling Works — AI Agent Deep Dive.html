@@ -1,0 +1,1700 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Scheduling Works — AI Agent Deep Dive</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Clash+Display:wght@400;500;600;700&family=Syne:wght@400;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #08090d;
+            --card: #0f1118;
+            --card2: #151820;
+            --border: #1e2130;
+            --border2: #252a3a;
+            --text: #dde1f0;
+            --muted: #5a6080;
+            --dim: #363d58;
+            --g: #00e5a0;
+            --b: #4d9fff;
+            --o: #ff7c3a;
+            --p: #c47aff;
+            --y: #ffd166;
+            --r: #ff4f6d;
+            --w: #ffffff;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 12px;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        .wrap {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 0 24px 100px;
+        }
+
+        /* ─── HEADER ─── */
+        .hero {
+            padding: 56px 0 40px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .hero-eyebrow {
+            font-size: 10px;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 14px;
+        }
+
+        .hero h1 {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(32px, 5vw, 62px);
+            font-weight: 800;
+            line-height: 1.0;
+            letter-spacing: -0.03em;
+            color: var(--w);
+        }
+
+        .hero h1 span {
+            color: var(--g);
+        }
+
+        .hero-sub {
+            margin-top: 16px;
+            font-size: 13px;
+            color: var(--muted);
+            max-width: 560px;
+            line-height: 1.9;
+            border-left: 2px solid var(--border2);
+            padding-left: 14px;
+        }
+
+        /* ─── SECTION ─── */
+        .sec {
+            margin-top: 64px;
+        }
+
+        .sec-hdr {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 28px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sec-n {
+            font-size: 9px;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--dim);
+        }
+
+        .sec-hdr h2 {
+            font-family: 'Syne', sans-serif;
+            font-size: 19px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--w);
+        }
+
+        .lbl {
+            margin-left: auto;
+            font-size: 9px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--dim);
+            border: 1px solid var(--border2);
+            padding: 3px 8px;
+        }
+
+        /* ─── CALLOUT ─── */
+        .box {
+            background: var(--card);
+            border: 1px solid var(--border2);
+            padding: 20px 24px;
+            margin-bottom: 12px;
+            font-size: 12px;
+            line-height: 1.85;
+            color: var(--muted);
+            position: relative;
+        }
+
+        .box.g {
+            border-left: 3px solid var(--g);
+        }
+
+        .box.b {
+            border-left: 3px solid var(--b);
+        }
+
+        .box.o {
+            border-left: 3px solid var(--o);
+        }
+
+        .box.p {
+            border-left: 3px solid var(--p);
+        }
+
+        .box.y {
+            border-left: 3px solid var(--y);
+        }
+
+        .box strong {
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .box.g strong {
+            color: var(--g);
+        }
+
+        .box.b strong {
+            color: var(--b);
+        }
+
+        .box.o strong {
+            color: var(--o);
+        }
+
+        .box.p strong {
+            color: var(--p);
+        }
+
+        .box.y strong {
+            color: var(--y);
+        }
+
+        .box em {
+            color: var(--text);
+            font-style: normal;
+        }
+
+        /* ─── FLOW DIAGRAM ─── */
+        .flow {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .flow-step {
+            display: flex;
+            gap: 0;
+            position: relative;
+        }
+
+        .flow-step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 19px;
+            top: 42px;
+            bottom: -1px;
+            width: 2px;
+            background: var(--border2);
+            z-index: 0;
+        }
+
+        .step-num {
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
+            background: var(--card2);
+            border: 1px solid var(--border2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Syne', sans-serif;
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--dim);
+            z-index: 1;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .flow-step:hover .step-num {
+            border-color: var(--g);
+            color: var(--g);
+        }
+
+        .step-body {
+            flex: 1;
+            background: var(--card);
+            border: 1px solid var(--border);
+            padding: 18px 22px;
+            margin-left: 12px;
+            margin-bottom: 8px;
+            transition: border-color 0.2s;
+        }
+
+        .flow-step:hover .step-body {
+            border-color: var(--border2);
+        }
+
+        .step-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--w);
+            margin-bottom: 6px;
+        }
+
+        .step-what {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.8;
+            margin-bottom: 10px;
+        }
+
+        .step-what em {
+            color: var(--text);
+            font-style: normal;
+        }
+
+        .code-snip {
+            background: var(--bg);
+            border: 1px solid var(--border2);
+            padding: 12px 14px;
+            font-family: 'DM Mono', monospace;
+            font-size: 10.5px;
+            color: var(--muted);
+            line-height: 1.8;
+            margin-top: 10px;
+            overflow-x: auto;
+        }
+
+        .code-snip .kw {
+            color: var(--p);
+        }
+
+        .code-snip .str {
+            color: var(--g);
+        }
+
+        .code-snip .key {
+            color: var(--b);
+        }
+
+        .code-snip .val {
+            color: var(--o);
+        }
+
+        .code-snip .comment {
+            color: var(--dim);
+        }
+
+        /* ─── STATE OBJECT DISPLAY ─── */
+        .state-block {
+            background: var(--bg);
+            border: 1px solid var(--border2);
+            padding: 20px;
+        }
+
+        .state-title {
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--g);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .state-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border2);
+        }
+
+        .state-grid {
+            display: grid;
+            grid-template-columns: 180px 1fr;
+            gap: 1px;
+            background: var(--border);
+        }
+
+        .state-row {
+            display: contents;
+        }
+
+        .state-key {
+            background: var(--card);
+            padding: 8px 12px;
+            font-size: 10.5px;
+            color: var(--b);
+            font-family: 'DM Mono', monospace;
+        }
+
+        .state-val {
+            background: var(--card2);
+            padding: 8px 12px;
+            font-size: 10.5px;
+            color: var(--muted);
+            font-family: 'DM Mono', monospace;
+            line-height: 1.6;
+        }
+
+        .state-val em {
+            color: var(--g);
+            font-style: normal;
+        }
+
+        .state-val .null {
+            color: var(--dim);
+        }
+
+        .state-val .arr {
+            color: var(--o);
+        }
+
+        .state-val .bool {
+            color: var(--p);
+        }
+
+        /* ─── PROFILE CARD ─── */
+        .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 8px;
+        }
+
+        .profile-card {
+            background: var(--card);
+            border: 1px solid var(--border2);
+            padding: 18px;
+            transition: all 0.2s;
+        }
+
+        .profile-card:hover {
+            border-color: var(--g);
+            transform: translateY(-2px);
+        }
+
+        .pc-icon {
+            font-size: 22px;
+            margin-bottom: 10px;
+        }
+
+        .pc-type {
+            font-size: 8px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .pc-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--w);
+            margin-bottom: 8px;
+        }
+
+        .pc-items {
+            list-style: none;
+            font-size: 10.5px;
+            color: var(--dim);
+            line-height: 1.8;
+        }
+
+        .pc-items li::before {
+            content: '→ ';
+        }
+
+        .pc-items li em {
+            color: var(--muted);
+            font-style: normal;
+        }
+
+        /* ─── SCHEDULE OUTPUT ─── */
+        .schedule-day {
+            background: var(--card);
+            border: 1px solid var(--border2);
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+
+        .sd-header {
+            background: var(--card2);
+            padding: 10px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sd-day {
+            font-family: 'Syne', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--w);
+        }
+
+        .sd-mode {
+            font-size: 9px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border: 1px solid;
+        }
+
+        .sd-mode.weekday {
+            color: var(--b);
+            border-color: rgba(77, 159, 255, 0.3);
+        }
+
+        .sd-mode.weekend {
+            color: var(--g);
+            border-color: rgba(0, 229, 160, 0.3);
+        }
+
+        .sd-blocks {
+            padding: 14px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .time-block {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+        }
+
+        .time-block:last-child {
+            border-bottom: none;
+        }
+
+        .tb-time {
+            width: 52px;
+            flex-shrink: 0;
+            font-size: 10px;
+            color: var(--dim);
+            padding-top: 1px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .tb-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-top: 4px;
+        }
+
+        .tb-dot.work {
+            background: var(--b);
+        }
+
+        .tb-dot.study {
+            background: var(--p);
+        }
+
+        .tb-dot.personal {
+            background: var(--g);
+        }
+
+        .tb-dot.health {
+            background: var(--o);
+        }
+
+        .tb-dot.rest {
+            background: var(--y);
+        }
+
+        .tb-dot.ent {
+            background: var(--r);
+        }
+
+        .tb-content {
+            flex: 1;
+        }
+
+        .tb-title {
+            font-size: 11.5px;
+            color: var(--text);
+            font-family: 'Syne', sans-serif;
+            font-weight: 600;
+        }
+
+        .tb-note {
+            font-size: 10px;
+            color: var(--dim);
+            margin-top: 2px;
+            line-height: 1.5;
+        }
+
+        .tb-tag {
+            font-size: 8px;
+            border: 1px solid var(--border2);
+            padding: 1px 6px;
+            color: var(--dim);
+            white-space: nowrap;
+            align-self: flex-start;
+            margin-top: 2px;
+            letter-spacing: 0.1em;
+        }
+
+        /* ─── MEMORY LAYERS ─── */
+        .mem-layers {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .mem-layer {
+            display: flex;
+            gap: 0;
+            border: 1px solid var(--border2);
+            overflow: hidden;
+            background: var(--card);
+            transition: border-color 0.2s;
+        }
+
+        .mem-layer:hover {
+            border-color: var(--border);
+        }
+
+        .ml-icon {
+            width: 56px;
+            flex-shrink: 0;
+            background: var(--bg);
+            border-right: 1px solid var(--border2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .ml-body {
+            flex: 1;
+            padding: 14px 18px;
+        }
+
+        .ml-name {
+            font-family: 'Syne', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--w);
+            margin-bottom: 4px;
+        }
+
+        .ml-tech {
+            font-size: 9px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .ml-desc {
+            font-size: 11px;
+            color: var(--dim);
+            line-height: 1.7;
+        }
+
+        .ml-desc em {
+            color: var(--muted);
+            font-style: normal;
+        }
+
+        .ml-example {
+            margin-top: 8px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 8px 12px;
+            font-size: 10px;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        /* ─── ONBOARDING FLOW ─── */
+        .onboard-chat {
+            background: var(--card);
+            border: 1px solid var(--border2);
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .chat-bar {
+            background: var(--card2);
+            padding: 10px 18px;
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chat-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--g);
+        }
+
+        .chat-msgs {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .msg {
+            display: flex;
+            gap: 10px;
+            max-width: 85%;
+        }
+
+        .msg.agent {
+            align-self: flex-start;
+        }
+
+        .msg.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .msg-avatar {
+            width: 30px;
+            height: 30px;
+            flex-shrink: 0;
+            border: 1px solid var(--border2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            background: var(--bg);
+        }
+
+        .msg-bubble {
+            padding: 10px 14px;
+            font-size: 11.5px;
+            line-height: 1.75;
+            border: 1px solid var(--border2);
+            position: relative;
+        }
+
+        .msg.agent .msg-bubble {
+            background: var(--card2);
+            color: var(--text);
+            border-color: var(--border2);
+        }
+
+        .msg.user .msg-bubble {
+            background: rgba(0, 229, 160, 0.07);
+            color: var(--g);
+            border-color: rgba(0, 229, 160, 0.2);
+        }
+
+        .msg-meta {
+            font-size: 9px;
+            letter-spacing: 0.1em;
+            color: var(--dim);
+            margin-top: 4px;
+            text-transform: uppercase;
+        }
+
+        .msg.user .msg-meta {
+            text-align: right;
+        }
+
+        .inferred-tag {
+            display: inline-block;
+            background: rgba(0, 229, 160, 0.1);
+            border: 1px solid rgba(0, 229, 160, 0.2);
+            color: var(--g);
+            font-size: 9px;
+            padding: 2px 8px;
+            margin: 2px 2px 0 0;
+            letter-spacing: 0.05em;
+        }
+
+        /* ─── CONDITIONAL ROUTING TABLE ─── */
+        .routing-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .routing-table th {
+            background: var(--card2);
+            padding: 10px 16px;
+            text-align: left;
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
+            border: 1px solid var(--border2);
+            font-family: 'DM Mono', monospace;
+        }
+
+        .routing-table td {
+            background: var(--card);
+            padding: 11px 16px;
+            border: 1px solid var(--border);
+            font-size: 11px;
+            color: var(--dim);
+            line-height: 1.6;
+            vertical-align: top;
+        }
+
+        .routing-table tr:hover td {
+            background: var(--card2);
+        }
+
+        .routing-table td:first-child {
+            font-family: 'DM Mono', monospace;
+            color: var(--o);
+            width: 220px;
+        }
+
+        .routing-table td:nth-child(2) {
+            color: var(--b);
+            width: 120px;
+        }
+
+        .routing-table td em {
+            color: var(--text);
+            font-style: normal;
+        }
+
+        /* footer */
+        footer {
+            margin-top: 80px;
+            padding: 20px 0;
+            border-top: 1px solid var(--border);
+            font-size: 9px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--dim);
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        @media (max-width: 600px) {
+            .profile-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .state-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+
+        <!-- HERO -->
+        <div class="hero">
+            <div class="hero-eyebrow">Personal AI Agent · Scheduling Intelligence Deep-Dive</div>
+            <h1>How It <span>Understands You</span><br>& Builds Your Schedule</h1>
+            <p class="hero-sub">
+                A complete technical and conceptual walkthrough — from the moment a user says "schedule my day" to a
+                fully personalized, adaptive timetable. Covers user identity recognition, intent parsing, multi-layer
+                memory, and the LangGraph execution flow.
+            </p>
+        </div>
+
+        <!-- ─── SECTION 0: THE BIG PICTURE ─── -->
+        <div class="sec">
+            <div class="sec-hdr">
+                <span class="sec-n">00</span>
+                <h2>The Big Picture</h2>
+                <span class="lbl">Mental Model</span>
+            </div>
+
+            <div class="box g">
+                <strong>Core Philosophy</strong>
+                When a user says <em>"schedule my day"</em>, the agent doesn't start from scratch each time. It already
+                knows who this person is — a college student vs. a working professional, a morning person vs. a night
+                owl, someone who skips gym on Mondays. The schedule it produces is an expression of accumulated
+                understanding, not a blank-slate answer.
+            </div>
+
+            <div class="box b">
+                <strong>Three Phases Every Time</strong>
+                <em>Phase 1 — Identity & Context Resolution:</em> Who is this user? What does the agent already know?
+                What time is it, what day is it, what does their week look like? Pull all of this from the memory layers
+                before doing anything else.<br>
+                <em>Phase 2 — Intent Decomposition & Clarification:</em> What exactly do they want? "Schedule my day" vs
+                "schedule my week" vs "I have an exam Friday" all require different planning graphs. If context is
+                missing, ask one targeted question before proceeding.<br>
+                <em>Phase 3 — Schedule Construction & Confirmation (HITL):</em> Generate a proposed schedule using the
+                user's profile + constraints, present it for review, accept edits, then commit to Firestore and set push
+                notifications.
+            </div>
+        </div>
+
+        <!-- ─── SECTION 1: USER IDENTITY & PROFILING ─── -->
+        <div class="sec">
+            <div class="sec-hdr">
+                <span class="sec-n">01</span>
+                <h2>How the Agent Knows Who You Are</h2>
+                <span class="lbl">User Profile System</span>
+            </div>
+
+            <div class="box o">
+                <strong>Two Sources of Identity</strong>
+                The agent builds a user profile from two streams: <em>explicit information</em> (things the user
+                directly told it during onboarding or in conversation) and <em>inferred information</em> (patterns the
+                agent observes over time — you always cancel gym on Tuesdays, you study better after 9 PM, you prefer
+                45-min blocks). Both live in the LangGraph Store (Redis) scoped to the user's Firebase UID.
+            </div>
+
+            <div class="profile-grid">
+                <div class="profile-card">
+                    <div class="pc-icon">🎓</div>
+                    <div class="pc-type">Identity · Explicit</div>
+                    <div class="pc-title">Role Classification</div>
+                    <ul class="pc-items">
+                        <li><em>student</em> / working_professional / both</li>
+                        <li>College name, semester year</li>
+                        <li>Company, job type, hours</li>
+                        <li>Collected at onboarding</li>
+                    </ul>
+                </div>
+                <div class="profile-card">
+                    <div class="pc-icon">📅</div>
+                    <div class="pc-type">Routine · Explicit</div>
+                    <div class="pc-title">Fixed Schedule Facts</div>
+                    <ul class="pc-items">
+                        <li>Wake time, sleep target</li>
+                        <li>College timetable (per day)</li>
+                        <li>Gym days & preferred time</li>
+                        <li>Meal preferences</li>
+                    </ul>
+                </div>
+                <div class="profile-card">
+                    <div class="pc-icon">🧠</div>
+                    <div class="pc-type">Preferences · Explicit</div>
+                    <div class="pc-title">Work Style</div>
+                    <ul class="pc-items">
+                        <li>Preferred study block length</li>
+                        <li>Deep work time (morning/night)</li>
+                        <li>Break frequency</li>
+                        <li>Pomodoro vs long blocks</li>
+                    </ul>
+                </div>
+                <div class="profile-card">
+                    <div class="pc-icon">📈</div>
+                    <div class="pc-type">Behavior · Inferred</div>
+                    <div class="pc-title">Learned Patterns</div>
+                    <ul class="pc-items">
+                        <li>Actual wake times from data</li>
+                        <li>Tasks user reschedules often</li>
+                        <li>Days with lower productivity</li>
+                        <li>Weekend vs weekday energy</li>
+                    </ul>
+                </div>
+                <div class="profile-card">
+                    <div class="pc-icon">🎬</div>
+                    <div class="pc-type">Interests · Explicit + Inferred</div>
+                    <div class="pc-title">Entertainment Profile</div>
+                    <ul class="pc-items">
+                        <li>Movie genres, runtime pref</li>
+                        <li>Watch history (TMDB IDs)</li>
+                        <li>Weekend vs weeknight slots</li>
+                        <li>Co-watching preferences</li>
+                    </ul>
+                </div>
+                <div class="profile-card">
+                    <div class="pc-icon">📍</div>
+                    <div class="pc-type">Location · Inferred</div>
+                    <div class="pc-title">Spatial Context</div>
+                    <ul class="pc-items">
+                        <li>Home, college, gym coords</li>
+                        <li>Average commute durations</li>
+                        <li>Library visit patterns</li>
+                        <li>Saved via geofence history</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Profile state object -->
+            <div class="state-block" style="margin-top:16px">
+                <div class="state-title">UserProfile — LangGraph Store Object (Redis, namespace: ["users", uid])</div>
+                <div class="state-grid">
+                    <div class="state-row">
+                        <div class="state-key">role</div>
+                        <div class="state-val"><em>"student"</em> <span class="comment">// or "professional" |
+                                "both"</span></div>
+                    </div>
+                    <div class="state-row">
+                        <div class="state-key">wake_time</div>
+                        <div class="state-val"><em>"06:30"</em> <span class="comment">// explicit from onboarding</span>
+                        </div>
+                    </div>
+                    <div class="state-row">
+                        <div class="state-key">actual_wake_avg</div>
+                        <div class="state-val"><em>"07:05"</em> <span class="comment">// inferred from 14-day
+                                pattern</span></div>
+                    </div>
+                    <div class="state-row">
+                        <div class="state-key">college_timetable</div>
+                        <div class="state-val"><em>{Mon: ["DSA 9AM", "Physics 11AM"], Thu: ["DBMS 10AM", "Lab 2PM"],
+                                ...}</em></div>
+                    </div>
+                    <div class="state-row">
+                        <div class="state-key">gym_days</div>
+                        <div class="state-val">
+                            <arr>["Tue", "Thu", "Sat"]</arr> <span class="comment">// preferred days</span>
+                        </div>
+                    </div>
+                    <div class="state-row">
+                        <div class="state-key">study_block_pref</div>
+                        <div class="state-val"><em>"90min"</em> <span class="comment">// preferred deep work
+                                block</span></div>
+                    </div>
+                    <div class="state-row">
+                        <div class="state-key">peak_focus_time</div>
+                        <div class="state-val"><em>"evening"</em> <span class="comment">// inferred from completion rate
+                                data</span></div>
+                    </div>
+                    <div class="state-row">
+                        <div class="state-key">reschedule_patterns</div>
+                        <div class="state-val"><em>{"gym_monday": 0.8, "study_after_lab": 0.6}</em> <span
+                                class="comment">// skip probability</span></div>
+                    </div>
+                    <div class="state-row">
+                        <div class="state-key">current_mode</div>
+                        <div class="state-val"><em>"weekday"</em> <span class="comment">// auto-detected from
+                                calendar</span></div>
+                    </div>
+                    <div class="state-row">
+                        <div class="state-key">movie_genres</div>
+                        <div class="state-val">
+                            <arr>["thriller", "sci-fi", "comedy"]</arr>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── SECTION 2: ONBOARDING CONVERSATION ─── -->
+        <div class="sec">
+            <div class="sec-hdr">
+                <span class="sec-n">02</span>
+                <h2>How the Agent Learns on Day 1</h2>
+                <span class="lbl">First-Time Onboarding</span>
+            </div>
+
+            <div class="box p">
+                <strong>Conversational Slot Filling</strong>
+                The agent doesn't show the user a form. It has a conversation. Using LangGraph's HITL interrupt pattern,
+                it pauses at each missing "slot" in the user profile and asks one targeted question at a time. The LLM
+                decides which question to ask next based on what's already known. This is called <em>adaptive slot
+                    filling</em> — the order and phrasing adapts to what the user has already revealed.
+            </div>
+
+            <div class="onboard-chat">
+                <div class="chat-bar">
+                    <div class="chat-dot"></div>
+                    First Launch — Onboarding Conversation
+                </div>
+                <div class="chat-msgs">
+
+                    <div class="msg agent">
+                        <div class="msg-avatar">🤖</div>
+                        <div>
+                            <div class="msg-bubble">Hey! I'm your personal AI agent. I'll handle your schedule, study
+                                reminders, and even curate movies for your weekends — but first I need to understand
+                                your life a bit. Are you a student, working professional, or both?</div>
+                            <div class="msg-meta">Agent · collecting: role</div>
+                        </div>
+                    </div>
+
+                    <div class="msg user">
+                        <div class="msg-avatar">👤</div>
+                        <div>
+                            <div class="msg-bubble">I'm a CS student at RVCE, third year. Also doing a part-time
+                                internship 3 days a week.</div>
+                            <div class="msg-meta">User response</div>
+                        </div>
+                    </div>
+
+                    <div class="msg agent">
+                        <div class="msg-avatar">🤖</div>
+                        <div>
+                            <div class="msg-bubble">
+                                Got it — student + intern, that's a full plate.
+                                <br><br>
+                                Inferred from your message:
+                                <br>
+                                <span class="inferred-tag">role: student + intern</span>
+                                <span class="inferred-tag">college: RVCE</span>
+                                <span class="inferred-tag">year: 3rd year CS</span>
+                                <span class="inferred-tag">work_days: 3/week</span>
+                                <br><br>
+                                What time do you usually wake up on weekdays?
+                            </div>
+                            <div class="msg-meta">Agent · storing to LangGraph Store · next slot: wake_time</div>
+                        </div>
+                    </div>
+
+                    <div class="msg user">
+                        <div class="msg-avatar">👤</div>
+                        <div>
+                            <div class="msg-bubble">Around 6:30, though honestly sometimes 7.</div>
+                            <div class="msg-meta">User response</div>
+                        </div>
+                    </div>
+
+                    <div class="msg agent">
+                        <div class="msg-avatar">🤖</div>
+                        <div>
+                            <div class="msg-bubble">
+                                I'll set your target at 6:30 AM and track your actual wake time to adjust nudges
+                                smartly.
+                                <br><br>
+                                Do you go to the gym or play sports? If yes — which days and what time works best?
+                            </div>
+                            <div class="msg-meta">Agent · storing: wake_time=06:30 · next slot: gym_schedule</div>
+                        </div>
+                    </div>
+
+                    <div class="msg user">
+                        <div class="msg-avatar">👤</div>
+                        <div>
+                            <div class="msg-bubble">Gym on Tuesday, Thursday, Saturday — evenings around 6:30 PM.</div>
+                            <div class="msg-meta">User response</div>
+                        </div>
+                    </div>
+
+                    <div class="msg agent">
+                        <div class="msg-avatar">🤖</div>
+                        <div>
+                            <div class="msg-bubble">
+                                Perfect. Last thing for today — can you share your college timetable? You can just type
+                                it out roughly (like "Mon: DSA 9AM, Physics 11AM") or I can ask day by day.
+                            </div>
+                            <div class="msg-meta">Agent · storing: gym_days + time · next slot: college_timetable</div>
+                        </div>
+                    </div>
+
+                    <div class="msg agent" style="margin-top:8px">
+                        <div class="msg-avatar">🤖</div>
+                        <div>
+                            <div class="msg-bubble"
+                                style="border-color: rgba(0,229,160,0.3); background: rgba(0,229,160,0.04); color: var(--g)">
+                                ✓ Profile built. I now have enough to start scheduling. You can always update any of
+                                this by just telling me — "I moved gym to Wednesday" and I'll update immediately.
+                            </div>
+                            <div class="msg-meta">Agent · onboarding complete · all slots filled → Store written</div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── SECTION 3: "SCHEDULE MY DAY" — EXACT EXECUTION FLOW ─── -->
+        <div class="sec">
+            <div class="sec-hdr">
+                <span class="sec-n">03</span>
+                <h2>When User Says "Schedule My Day"</h2>
+                <span class="lbl">LangGraph Execution Flow</span>
+            </div>
+
+            <div class="box g">
+                <strong>What Gets Triggered</strong>
+                This single sentence kicks off a LangGraph graph execution with 7 distinct nodes. The agent doesn't just
+                answer — it <em>reasons, retrieves, plans, checks, proposes, waits for approval, then commits</em>. Each
+                step is a node. The path between them changes based on what it finds.
+            </div>
+
+            <div class="flow">
+
+                <div class="flow-step">
+                    <div class="step-num">1</div>
+                    <div class="step-body">
+                        <div class="step-title">Intent Classification Node</div>
+                        <div class="step-what">
+                            The Root Orchestrator LLM reads the message and classifies it. <em>"Schedule my day"</em> →
+                            scope: <em>single_day</em>, intent: <em>schedule_build</em>. <em>"Schedule my week"</em> →
+                            scope: <em>full_week</em>. <em>"I have an exam Friday"</em> → intent:
+                            <em>schedule_adjust</em>, constraint: <em>exam_day=Friday</em>. This classification
+                            determines which sub-graph to execute next.
+                        </div>
+                        <div class="code-snip">
+                            <span class="comment">// Classified intent object passed into graph state</span>
+                            {
+                            <span class="key">"intent"</span>: <span class="str">"schedule_build"</span>,
+                            <span class="key">"scope"</span>: <span class="str">"single_day"</span>,
+                            <span class="key">"target_date"</span>: <span class="str">"2026-06-08"</span>, <span
+                                class="comment">// today or specified</span>
+                            <span class="key">"constraints"</span>: [],
+                            <span class="key">"needs_clarification"</span>: <span class="val">false</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flow-step">
+                    <div class="step-num">2</div>
+                    <div class="step-body">
+                        <div class="step-title">Context Hydration Node</div>
+                        <div class="step-what">
+                            Before any planning, the agent loads all relevant context. It pulls from <em>three sources
+                                simultaneously</em>: (A) the LangGraph Store (Redis) for the user profile and long-term
+                            preferences, (B) Firestore via MCP tool for today's specific timetable and any existing
+                            calendar events, (C) Gemini Nano on-device (via ADK) for current location and time context.
+                            All three run in parallel as LangGraph parallel branches.
+                        </div>
+                        <div class="code-snip">
+                            <span class="comment">// Parallel context fetch — all 3 fire at once</span>
+                            <span class="kw">await</span> Promise.all([
+                            store.get([<span class="str">"users"</span>, uid]), <span class="comment">// Redis: user
+                                profile</span>
+                            mcp.call(<span class="str">"timetable_fetch"</span>, {date}), <span class="comment">//
+                                Firestore: today's classes</span>
+                            adk.onDevice(<span class="str">"get_context"</span>) <span class="comment">// Gemini Nano:
+                                time + location</span>
+                            ])
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flow-step">
+                    <div class="step-num">3</div>
+                    <div class="step-body">
+                        <div class="step-title">Clarification Check Node (HITL — Conditional)</div>
+                        <div class="step-what">
+                            The agent checks if it has enough context to build a good schedule. If the user profile is
+                            complete and the date is clear → <em>skip to planning</em>. If something critical is missing
+                            (e.g., it's a new week and no exam dates are known) → <em>interrupt graph, ask one targeted
+                                question, wait</em>. LangGraph's <code>interrupt_before</code> pauses execution and
+                            saves state via the checkpointer. The conversation can sit paused for hours until the user
+                            responds.
+                        </div>
+                        <div class="code-snip">
+                            <span class="comment">// Conditional edge: missing context → ask, else plan</span>
+                            <span class="kw">def</span> <span class="key">route_after_context</span>(state):
+                            <span class="kw">if</span> state[<span class="str">"missing_slots"</span>]:
+                            <span class="kw">return</span> <span class="str">"ask_clarification"</span> <span
+                                class="comment">// → HITL interrupt node</span>
+                            <span class="kw">return</span> <span class="str">"build_schedule"</span> <span
+                                class="comment">// → planning node</span>
+
+                            <span class="comment">// Example clarification: "Any exams or deadlines this week I should
+                                know about?"</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flow-step">
+                    <div class="step-num">4</div>
+                    <div class="step-body">
+                        <div class="step-title">Schedule Builder Node — The Planning Brain</div>
+                        <div class="step-what">
+                            This is where the actual intelligence lives. The Gemini Flash LLM receives a carefully
+                            constructed prompt containing: the user's full profile, today's fixed constraints (college
+                            classes, internship days), preferences (study block length, peak focus time), inferred
+                            patterns (which gym days they usually skip), and the current day/time. It outputs a
+                            structured JSON schedule. The schedule respects:
+                            <br>— <em>Fixed blocks</em>: college classes, internship hours (non-negotiable)
+                            <br>— <em>Flexible blocks</em>: study, gym, meals, personal time (slotted around fixed)
+                            <br>— <em>Inferred adjustments</em>: if today is Thursday and they have a late lab, study is
+                            pushed to post-dinner
+                            <br>— <em>Mode awareness</em>: weekday = structured, weekend = relaxed with movie slot
+                        </div>
+                        <div class="code-snip">
+                            <span class="comment">// Simplified prompt structure sent to Gemini Flash</span>
+                            <span class="str">"""
+                                You are scheduling for a 3rd-year CS student at RVCE.
+                                Today: Monday June 8, 2026
+
+                                FIXED (non-negotiable):
+                                - DSA lecture: 9:00 AM – 10:00 AM
+                                - Physics lecture: 11:00 AM – 12:00 PM
+
+                                USER PROFILE:
+                                - Wake time: 6:30 AM | Peak focus: evening
+                                - Study block preference: 90-min Pomodoro
+                                - Gym: NOT today (Monday — historically skips)
+                                - Dinner: ~8 PM | Sleep target: 11:30 PM
+
+                                TASK QUEUE (from Firestore):
+                                - DBMS assignment due Wednesday
+                                - Physics lab report due Friday
+
+                                Build a structured day schedule as JSON with time, title, type, and notes.
+                                """</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flow-step">
+                    <div class="step-num">5</div>
+                    <div class="step-body">
+                        <div class="step-title">Schedule Proposal — HITL Review (interrupt_before)</div>
+                        <div class="step-what">
+                            The agent <em>never silently commits</em> a full schedule. It presents the proposed schedule
+                            to the user in a clean visual format (the mobile app renders time blocks) and waits. The
+                            graph is paused via LangGraph checkpointer. The user can: <em>approve</em> (→ commit),
+                            <em>edit specific blocks</em> (→ update_state() → re-run planner for affected blocks), or
+                            <em>reject and re-plan</em> (→ restart planning node with new constraints). This is the HITL
+                            "human as judge" pattern.
+                        </div>
+                        <div class="code-snip">
+                            <span class="comment">// User edits a block — agent updates state and re-evaluates
+                                downstream</span>
+                            graph.update_state(config, {
+                            <span class="key">"schedule_edits"</span>: [{
+                            <span class="key">"block"</span>: <span class="str">"gym"</span>,
+                            <span class="key">"action"</span>: <span class="str">"move"</span>,
+                            <span class="key">"new_time"</span>: <span class="str">"7:00 PM"</span> <span
+                                class="comment">// user pushed gym 30 mins later</span>
+                            }]
+                            })
+                            graph.invoke(Command(resume={<span class="str">"approved"</span>: <span
+                                class="val">true</span>}), config)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flow-step">
+                    <div class="step-num">6</div>
+                    <div class="step-body">
+                        <div class="step-title">Commit & Notify Node</div>
+                        <div class="step-what">
+                            Once approved, the agent fires three MCP tools in parallel: <em>calendar_write</em> (saves
+                            all blocks to device calendar + Firestore), <em>push_schedule</em> (registers Expo push
+                            notifications 15 min before each block), and <em>memory_update</em> (if the user edited any
+                            blocks, those edits are stored in the LangGraph Store as behavioral signals — e.g., "user
+                            prefers gym at 7 PM not 6:30 PM").
+                        </div>
+                        <div class="code-snip">
+                            <span class="comment">// Three parallel MCP tool calls on approval</span>
+                            <span class="kw">await</span> Promise.all([
+                            mcp.call(<span class="str">"calendar_write"</span>, {blocks: schedule}),
+                            mcp.call(<span class="str">"push_schedule"</span>, {alerts: schedule.map(reminderFor)}),
+                            mcp.call(<span class="str">"preference_store"</span>, {uid, edits: userEdits})
+                            ])
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flow-step">
+                    <div class="step-num">7</div>
+                    <div class="step-body">
+                        <div class="step-title">Continuous Learning Node (Background)</div>
+                        <div class="step-what">
+                            As the day progresses, the agent monitors completion. Did the user actually wake up at 6:30?
+                            Did they skip the study block? Did they extend the gym session? These signals are processed
+                            asynchronously (not in the main graph — a separate background LangGraph cron node runs every
+                            night) and written back to the LangGraph Store. Over 2 weeks, the agent's schedule proposals
+                            get noticeably more accurate to the user's real behavior. This is <em>episodic memory
+                                informing future planning</em>.
+                        </div>
+                        <div class="code-snip">
+                            <span class="comment">// Nightly learning node — runs via cron, updates user profile</span>
+                            <span class="kw">def</span> <span class="key">learning_node</span>(state):
+                            completed = state[<span class="str">"completed_blocks"</span>]
+                            skipped = state[<span class="str">"skipped_blocks"</span>]
+                            <span class="comment"># Update skip probability in Store</span>
+                            <span class="kw">for</span> block <span class="kw">in</span> skipped:
+                            profile[<span class="str">"reschedule_patterns"</span>][block] += <span
+                                class="val">0.1</span>
+                            store.put([<span class="str">"users"</span>, uid], <span class="str">"profile"</span>,
+                            profile)
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ─── SECTION 4: THE SAMPLE OUTPUT ─── -->
+        <div class="sec">
+            <div class="sec-hdr">
+                <span class="sec-n">04</span>
+                <h2>What the Schedule Looks Like</h2>
+                <span class="lbl">Generated Output</span>
+            </div>
+
+            <div class="box y">
+                <strong>Same User, Different Days — Very Different Schedules</strong>
+                The agent doesn't apply a template. It reasons about each day individually. A <em>Monday with a heavy
+                    lab afternoon</em> looks completely different from a <em>Thursday with only one morning class</em>.
+                A <em>Saturday</em> gets a completely different treatment — relaxed, no hard blocks, movie night at 9
+                PM.
+            </div>
+
+            <!-- Monday -->
+            <div class="schedule-day">
+                <div class="sd-header">
+                    <div class="sd-day">Monday · June 8, 2026</div>
+                    <div class="sd-mode weekday">Weekday Mode</div>
+                </div>
+                <div class="sd-blocks">
+                    <div class="time-block">
+                        <div class="tb-time">06:30</div>
+                        <div class="tb-dot personal"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">Wake Up + Morning Routine</div>
+                            <div class="tb-note">Push: "Good morning — DSA at 9 AM, bring your notes on Trees chapter"
+                            </div>
+                        </div>
+                        <div class="tb-tag">Personal</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">07:15</div>
+                        <div class="tb-dot personal"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">Breakfast + Quick Review</div>
+                            <div class="tb-note">15 min: skim DSA assignment before lecture. Agent surfaces relevant
+                                notes from Firestore.</div>
+                        </div>
+                        <div class="tb-tag">Meal + Prep</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">08:30</div>
+                        <div class="tb-dot work"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">Commute to RVCE</div>
+                            <div class="tb-note">30 min. Agent auto-detects departure via geofence + triggers commute
+                                mode.</div>
+                        </div>
+                        <div class="tb-tag">Transit</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">09:00</div>
+                        <div class="tb-dot work"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">DSA Lecture — Trees & Graphs</div>
+                            <div class="tb-note">Textbook: CLRS Chapter 22–23. Push 10 min before: "DSA starting soon —
+                                don't forget your assignment draft"</div>
+                        </div>
+                        <div class="tb-tag">College · Fixed</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">11:00</div>
+                        <div class="tb-dot work"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">Physics Lecture — Electromagnetism</div>
+                            <div class="tb-note">Agent notes: lab report due Friday. Flags that you haven't started it
+                                yet.</div>
+                        </div>
+                        <div class="tb-tag">College · Fixed</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">13:00</div>
+                        <div class="tb-dot personal"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">Lunch + Rest</div>
+                            <div class="tb-note">Agent skips gym today — historical pattern: you skip gym on Mondays 80%
+                                of the time.</div>
+                        </div>
+                        <div class="tb-tag">Personal</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">14:30</div>
+                        <div class="tb-dot study"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">DBMS Assignment — Deep Work Block</div>
+                            <div class="tb-note">90 min Pomodoro. Due Wednesday. Agent prioritized this over Physics
+                                report (earlier deadline).</div>
+                        </div>
+                        <div class="tb-tag">Study · Priority High</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">16:30</div>
+                        <div class="tb-dot personal"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">Break + Walk</div>
+                            <div class="tb-note">Scheduled per your preference for an outdoor break mid-afternoon.</div>
+                        </div>
+                        <div class="tb-tag">Rest</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">17:30</div>
+                        <div class="tb-dot study"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">Physics Lab Report — Start Draft</div>
+                            <div class="tb-note">90 min. Due Friday — start early. Agent will ask for progress check
+                                tomorrow.</div>
+                        </div>
+                        <div class="tb-tag">Study · Priority Medium</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">20:00</div>
+                        <div class="tb-dot personal"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">Dinner</div>
+                            <div class="tb-note">Free time. No study blocks after dinner on Mondays per your stated
+                                preference.</div>
+                        </div>
+                        <div class="tb-tag">Meal</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">23:30</div>
+                        <div class="tb-dot rest"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">Wind Down → Sleep</div>
+                            <div class="tb-note">Push reminder 30 min before: "Tomorrow: Physics 11 AM — internship day.
+                                Pack laptop."</div>
+                        </div>
+                        <div class="tb-tag">Sleep</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Saturday -->
+            <div class="schedule-day" style="margin-top:8px">
+                <div class="sd-header">
+                    <div class="sd-day">Saturday · June 13, 2026</div>
+                    <div class="sd-mode weekend">Weekend Mode</div>
+                </div>
+                <div class="sd-blocks">
+                    <div class="time-block">
+                        <div class="tb-time">09:00</div>
+                        <div class="tb-dot personal"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">Gentle Wake — No Alarm</div>
+                            <div class="tb-note">Weekend mode active. No hard start. Agent only nudges if you set a
+                                specific goal.</div>
+                        </div>
+                        <div class="tb-tag">Weekend</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">10:30</div>
+                        <div class="tb-dot personal"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">Late Breakfast</div>
+                            <div class="tb-note">Relaxed. Agent checks if you have any pending tasks with weekend
+                                deadlines.</div>
+                        </div>
+                        <div class="tb-tag">Meal</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">11:30</div>
+                        <div class="tb-dot study"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">Self-Improvement Block — Personal Project</div>
+                            <div class="tb-note">2 hrs. Unstructured deep work time for your side project / portfolio.
+                                You marked this as Saturday priority.</div>
+                        </div>
+                        <div class="tb-tag">Project</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">18:30</div>
+                        <div class="tb-dot health"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">Gym Session</div>
+                            <div class="tb-note">Saturday is a gym day. Geofence trigger: push notification when you
+                                pass within 400m of your gym.</div>
+                        </div>
+                        <div class="tb-tag">Health</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">20:30</div>
+                        <div class="tb-dot personal"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">Dinner</div>
+                        </div>
+                        <div class="tb-tag">Meal</div>
+                    </div>
+                    <div class="time-block">
+                        <div class="tb-time">21:30</div>
+                        <div class="tb-dot ent"></div>
+                        <div class="tb-content">
+                            <div class="tb-title">🎬 Movie Night — TMDB Curated</div>
+                            <div class="tb-note">This week's pick: "Dune: Part Three" (Sci-Fi, 2h 28m) · 94% match ·
+                                Based on your genre history and runtime preference. Tap to confirm or get 3
+                                alternatives.</div>
+                        </div>
+                        <div class="tb-tag">Entertainment</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── SECTION 5: INTENT ROUTING TABLE ─── -->
+        <div class="sec">
+            <div class="sec-hdr">
+                <span class="sec-n">05</span>
+                <h2>Intent → Agent Routing</h2>
+                <span class="lbl">LangGraph Conditional Edges</span>
+            </div>
+
+            <div class="box b">
+                <strong>How One Sentence Routes to the Right Agent</strong>
+                Every message goes through the Intent Classification Node first. The output determines which specialist
+                agent in the LangGraph graph handles it next. These are <em>conditional edges</em> in LangGraph v1 — the
+                graph literally branches differently based on what the LLM classified.
+            </div>
+
+            <table class="routing-table">
+                <thead>
+                    <tr>
+                        <th>User Says</th>
+                        <th>Intent</th>
+                        <th>Agent Routed To</th>
+                        <th>Memory Accessed</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>"Schedule my day"</td>
+                        <td>schedule_build · day</td>
+                        <td><em>Routine Agent → Schedule Builder Node</em>. Pulls full profile, today's timetable, task
+                            queue.</td>
+                        <td>Store (profile) + Firestore (timetable) + Gemini Nano (time context)</td>
+                    </tr>
+                    <tr>
+                        <td>"Schedule my week"</td>
+                        <td>schedule_build · week</td>
+                        <td><em>Routine Agent</em> loops over 7 days, runs planning node per day, applies cross-day
+                            constraints (exam proximity, assignment deadlines).</td>
+                        <td>Store + Firestore weekly timetable + task queue</td>
+                    </tr>
+                    <tr>
+                        <td>"I have an exam Friday"</td>
+                        <td>schedule_adjust · constraint_add</td>
+                        <td><em>Academic Agent</em>. Writes exam to task queue (priority: critical). Triggers reschedule
+                            of Fri study blocks. Suggests adding a revision session Thu night.</td>
+                        <td>Firestore (writes exam event) + Store (updates priority weights)</td>
+                    </tr>
+                    <tr>
+                        <td>"Move gym to tomorrow"</td>
+                        <td>schedule_edit · block_move</td>
+                        <td><em>Routine Agent</em>. Updates today's and tomorrow's schedule. Checks for conflicts.
+                            Updates push notifications via MCP push_schedule tool.</td>
+                        <td>Checkpointer (current schedule state) + MCP (calendar + push)</td>
+                    </tr>
+                    <tr>
+                        <td>"What should I watch tonight?"</td>
+                        <td>entertainment_rec · tonight</td>
+                        <td><em>Entertainment Agent</em>. Checks if it's weekend (TMDB API full search) or weekday
+                            (shorter runtime filter). Fetches 3 curated options based on genre history.</td>
+                        <td>Store (movie preferences, watch history) + TMDB MCP tool</td>
+                    </tr>
+                    <tr>
+                        <td>"Remind me about my DBMS assignment"</td>
+                        <td>reminder_set · academic</td>
+                        <td><em>Academic Agent</em>. Writes reminder to task queue with priority + deadline. Schedules
+                            push notification via MCP. Updates study blocks to include DBMS time.</td>
+                        <td>Firestore (task queue) + MCP (push_schedule)</td>
+                    </tr>
+                    <tr>
+                        <td>"I'm near the gym"</td>
+                        <td>location_trigger · gym_proximity</td>
+                        <td><em>Location Agent (on-device, Gemini Nano)</em>. Geofence match. Checks if it's a gym day
+                            and it's within the gym window. Sends push: "You're near the gym — it's your gym day, want
+                            to go now?"</td>
+                        <td>Store (gym_days) + ADK on-device only — no cloud round-trip</td>
+                    </tr>
+                    <tr>
+                        <td>"I'm exhausted, skip study today"</td>
+                        <td>schedule_override · user_state</td>
+                        <td><em>Routine Agent + HITL</em>. Acknowledges, removes study blocks, asks: "Should I
+                            reschedule DBMS assignment to tomorrow?" Stores exhaustion event as episodic memory signal.
+                        </td>
+                        <td>Checkpointer (live schedule) + Store (writes fatigue pattern signal)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ─── SECTION 6: MEMORY LAYERS RECAP ─── -->
+        <div class="sec">
+            <div class="sec-hdr">
+                <span class="sec-n">06</span>
+                <h2>How Memory Makes It Personal Over Time</h2>
+                <span class="lbl">3 Memory Types in Play</span>
+            </div>
+
+            <div class="mem-layers">
+                <div class="mem-layer">
+                    <div class="ml-icon">⚡</div>
+                    <div class="ml-body">
+                        <div class="ml-name">Semantic Memory — "Know Facts About You"</div>
+                        <div class="ml-tech" style="color: var(--g)">LangGraph Store · Redis · cross-session · always
+                            available</div>
+                        <div class="ml-desc">Stores facts about the user that the agent <em>explicitly learns</em>.
+                            Name, role, schedule preferences, college timetable, gym days. This is the backbone of
+                            personalization — the agent queries this before every scheduling task to know who it's
+                            talking to and what their constraints are.</div>
+                        <div class="ml-example">Example fact stored: {"key": "gym_days", "value": ["Tue", "Thu", "Sat"],
+                            "source": "explicit"}</div>
+                    </div>
+                </div>
+                <div class="mem-layer">
+                    <div class="ml-icon">🔁</div>
+                    <div class="ml-body">
+                        <div class="ml-name">Episodic Memory — "Remember What Happened"</div>
+                        <div class="ml-tech" style="color: var(--b)">LangGraph Store · Redis · nightly background write
+                            · cross-session</div>
+                        <div class="ml-desc">Stores past events and their outcomes. <em>"User skipped gym Monday 4 out
+                                of 5 Mondays."</em> <em>"User extended study block by 30 min on 3 occasions."</em> The
+                            nightly learning cron node processes completion signals and updates behavioral probability
+                            weights. After 2 weeks, schedule proposals are noticeably adapted to actual behavior.</div>
+                        <div class="ml-example">Example: {"event": "gym_skip", "day": "Monday", "count": 4,
+                            "skip_probability": 0.8}</div>
+                    </div>
+                </div>
+                <div class="mem-layer">
+                    <div class="ml-icon">📋</div>
+                    <div class="ml-body">
+                        <div class="ml-name">Procedural Memory — "How to Plan For You"</div>
+                        <div class="ml-tech" style="color: var(--p)">System prompt optimization · evolves with feedback
+                        </div>
+                        <div class="ml-desc">The agent's planning instructions aren't static. After the user edits a
+                            schedule (pushes gym later, reorders study blocks), those edit patterns get compressed into
+                            updated planning instructions. Over time the <em>system prompt itself evolves</em> to
+                            reflect the user's planning style — it knows to put gym at 7 PM not 6:30, and to never
+                            schedule deep work right after a long lab.</div>
+                        <div class="ml-example">Instruction evolved: "This user prefers gym sessions at 7 PM. Never
+                            schedule study blocks within 30 min of meals."</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <span>Scheduling Intelligence Deep-Dive · Personal AI Agent</span>
+            <span>LangGraph v1 · HITL · Mem0 patterns · Gemini Flash + Nano</span>
+            <span>June 2026</span>
+        </footer>
+
+    </div>
+</body>
+
+</html>

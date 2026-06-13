@@ -1,0 +1,1247 @@
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
+  KeyboardAvoidingView
+} from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
+import { COLORS } from "../../constants/colors";
+import { firestoreService, authService } from "../../services/firebase";
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000";
+
+type AcademicEvent = {
+  id?: string;
+  title: string;
+  type: "cie" | "see" | "assignment" | "lab_record" | "viva";
+  date: string;
+  description?: string;
+  confidence?: "scraped" | "user_confirmed" | "manual";
+};
+
+export default function AcademicsScreen() {
+  const [uid, setUid] = useState(authService.currentUser?.uid || "mock_user_123");
+  const [events, setEvents] = useState<AcademicEvent[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+
+  // Form states for manual academic event addition
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [title, setTitle] = useState("");
+  const [type, setType] = useState<"cie" | "see" | "assignment" | "lab_record" | "viva">("cie");
+  const [date, setDate] = useState("");
+  const [description, setDescription] = useState("");
+  const [savingEvent, setSavingEvent] = useState(false);
+
+  // Upload states
+  const [uploading, setUploading] = useState<"timetable" | "syllabus" | null>(null);
+  
+  // Subject name for syllabus upload
+  const [syllabusSubject, setSyllabusSubject] = useState("");
+  const [showSubjectPrompt, setShowSubjectPrompt] = useState(false);
+  const [syllabusFile, setSyllabusFile] = useState<any>(null);
+
+  // Confirmation Modals states
+  const [showTimetableModal, setShowTimetableModal] = useState(false);
+  const [rawTimetableJson, setRawTimetableJson] = useState("");
+  const [showSyllabusModal, setShowSyllabusModal] = useState(false);
+  const [rawSyllabusJson, setRawSyllabusJson] = useState("");
+  const [timetableData, setTimetableData] = useState<Record<string, Array<{time: string, subject: string, room: string, professor: string}>>>({});
+  const [isEditingTimetable, setIsEditingTimetable] = useState(false);
+
+  useEffect(() => {
+    const unsubAuth = authService.onAuthStateChanged((user: any) => {
+      if (user) {
+        setUid(user.uid);
+      } else {
+        setUid("mock_user_123");
+      }
+    });
+    return unsubAuth;
+  }, []);
+
+  useEffect(() => {
+    if (!uid) {
+      setEvents([]);
+      setLoadingEvents(false);
+      return;
+    }
+    setLoadingEvents(true);
+    const docPath = `academic_events/${uid}/items`;
+    const unsub = firestoreService.onSnapshot(
+      docPath,
+      (list: any[]) => {
+        const sorted = (list || []).sort((a, b) => a.date.localeCompare(b.date));
+        setEvents(sorted);
+        setLoadingEvents(false);
+      },
+      (err: any) => {
+        console.error("Error fetching academic events:", err);
+        setLoadingEvents(false);
+      }
+    );
+    return unsub;
+  }, [uid]);
+
+  const handleAddEvent = async () => {
+    if (!title.trim() || !date.trim()) {
+      Alert.alert("Error", "Please fill in the title and date (YYYY-MM-DD) fields.");
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
+      Alert.alert("Error", "Date must be in YYYY-MM-DD format.");
+      return;
+    }
+
+    setSavingEvent(true);
+    try {
+      const colPath = `academic_events/${uid}/items`;
+      await firestoreService.add(colPath, {
+        title: title.trim(),
+        type,
+        date: date.trim(),
+        description: description.trim() || undefined
+      });
+      setTitle("");
+      setDate("");
+      setDescription("");
+      setShowAddForm(false);
+      Alert.alert("Success", "Academic milestone added successfully!");
+    } catch (err: any) {
+      Alert.alert("Error", `Failed to save event: ${err.message}`);
+    } finally {
+      setSavingEvent(false);
+    }
+  };
+
+  const handleDeleteEvent = (eventId: string | undefined) => {
+    if (!eventId) return;
+    Alert.alert(
+      "Delete Event",
+      "Are you sure you want to remove this academic event?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await firestoreService.delete(`academic_events/${uid}/items/${eventId}`);
+            } catch (err: any) {
+              Alert.alert("Error", `Failed to delete: ${err.message}`);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleConfirmEvent = async (eventId: string | undefined) => {
+    if (!eventId) return;
+    try {
+      await firestoreService.update(`academic_events/${uid}/items/${eventId}`, {
+        confidence: "user_confirmed"
+      });
+      Alert.alert("Success", "Milestone confirmed! Study blocks will now be scheduled.");
+    } catch (err: any) {
+      Alert.alert("Error", `Failed to confirm milestone: ${err.message}`);
+    }
+  };
+
+
+  const handlePickTimetableImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Required", "Need photo library access to upload a screenshot.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.6,
+      });
+
+      if (result.canceled) return;
+      const asset = result.assets[0];
+
+      // File size guard
+      const fileInfo = await FileSystem.getInfoAsync(asset.uri);
+      if (fileInfo.exists && fileInfo.size && fileInfo.size > 5 * 1024 * 1024) {
+        Alert.alert("Error", "Screenshot size exceeds the 5MB limit.");
+        return;
+      }
+
+      setUploading("timetable");
+
+      const formData = new FormData();
+      formData.append("user_id", uid);
+      formData.append("file", {
+        uri: asset.uri,
+        name: asset.fileName || "timetable.jpg",
+        type: asset.mimeType || "image/jpeg"
+      } as any);
+
+      const response = await fetch(`${API_URL}/api/upload/timetable`, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "multipart/form-data",
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP ${response.status}`);
+      }
+
+      const resJson = await response.json();
+      const timetable = resJson.timetable || {};
+      const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+      const normalizedTimetable: Record<string, Array<{time: string, subject: string, room: string, professor: string}>> = {};
+      weekdays.forEach(day => {
+        normalizedTimetable[day] = timetable[day] || [];
+      });
+      setTimetableData(normalizedTimetable);
+      setRawTimetableJson(JSON.stringify(normalizedTimetable, null, 2));
+      setIsEditingTimetable(false);
+      setShowTimetableModal(true);
+    } catch (err: any) {
+      console.error(err);
+      Alert.alert("Upload Failed", err.message || "Failed to process timetable screenshot.");
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const updateClassField = (day: string, idx: number, field: string, val: string) => {
+    setTimetableData(prev => {
+      const updated = { ...prev };
+      const dayClasses = [...(updated[day] || [])];
+      dayClasses[idx] = { ...dayClasses[idx], [field]: val };
+      updated[day] = dayClasses;
+      return updated;
+    });
+  };
+
+  const addClass = (day: string) => {
+    setTimetableData(prev => {
+      const updated = { ...prev };
+      const dayClasses = [...(updated[day] || [])];
+      dayClasses.push({ time: "", subject: "", room: "", professor: "" });
+      updated[day] = dayClasses;
+      return updated;
+    });
+  };
+
+  const removeClass = (day: string, idx: number) => {
+    setTimetableData(prev => {
+      const updated = { ...prev };
+      const dayClasses = [...(updated[day] || [])];
+      dayClasses.splice(idx, 1);
+      updated[day] = dayClasses;
+      return updated;
+    });
+  };
+
+  const handlePickSyllabusPdf = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "application/pdf",
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) return;
+      const asset = result.assets[0];
+
+      if (asset.size && asset.size > 5 * 1024 * 1024) {
+        Alert.alert("Error", "File too large. Please upload a PDF under 5MB.");
+        return;
+      }
+
+      setSyllabusFile({
+        uri: asset.uri,
+        name: asset.name || "syllabus.pdf",
+        type: asset.mimeType || "application/pdf"
+      });
+      setSyllabusSubject("");
+      setShowSubjectPrompt(true);
+    } catch (err: any) {
+      console.error(err);
+      Alert.alert("File Selection Failed", "Failed to select document.");
+    }
+  };
+
+  const handleUploadSyllabus = async () => {
+    if (!syllabusSubject.trim()) {
+      Alert.alert("Error", "Please enter a subject name.");
+      return;
+    }
+    if (!syllabusFile) {
+      Alert.alert("Error", "No PDF file selected.");
+      return;
+    }
+    setShowSubjectPrompt(false);
+    setUploading("syllabus");
+
+    try {
+      const formData = new FormData();
+      formData.append("user_id", uid);
+      formData.append("subject", syllabusSubject.trim());
+      formData.append("file", {
+        uri: syllabusFile.uri,
+        name: syllabusFile.name || "syllabus.pdf",
+        type: syllabusFile.type || "application/pdf"
+      } as any);
+
+      const response = await fetch(`${API_URL}/api/upload/syllabus`, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "multipart/form-data",
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP ${response.status}`);
+      }
+
+      const resJson = await response.json();
+      setRawSyllabusJson(JSON.stringify(resJson.syllabus, null, 2));
+      setShowSyllabusModal(true);
+    } catch (err: any) {
+      console.error(err);
+      Alert.alert("Upload Failed", err.message || "Failed to parse syllabus document.");
+    } finally {
+      setUploading(null);
+      setSyllabusFile(null);
+    }
+  };
+
+  const handleConfirmTimetable = async () => {
+    try {
+      const cleanedTimetable: Record<string, Array<{time: string, subject: string, room: string, professor: string}>> = {};
+      Object.entries(timetableData).forEach(([day, classes]) => {
+        cleanedTimetable[day] = classes.filter(cls => cls.subject && cls.subject.trim() !== "");
+      });
+
+      const response = await fetch(`${API_URL}/api/upload/confirm/timetable`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: uid, timetable: cleanedTimetable })
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      Alert.alert("Success", "Timetable parsed and saved to database!");
+      setShowTimetableModal(false);
+      setIsEditingTimetable(false);
+    } catch (err: any) {
+      Alert.alert("Save Failed", err.message || "Could not confirm timetable details.");
+    }
+  };
+
+  const handleConfirmSyllabus = async () => {
+    try {
+      let parsed;
+      try {
+        parsed = JSON.parse(rawSyllabusJson);
+      } catch (jsonErr) {
+        Alert.alert("Invalid JSON", "Please ensure your edits result in valid JSON syntax.");
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/upload/confirm/syllabus`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: uid,
+          subject: parsed.subject,
+          syllabus: parsed
+        })
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      Alert.alert("Success", `Syllabus for ${parsed.subject} saved successfully!`);
+      setShowSyllabusModal(false);
+    } catch (err: any) {
+      Alert.alert("Save Failed", err.message || "Could not confirm syllabus details.");
+    }
+  };
+
+  const getDaysRemainingText = (dateStr: string) => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const target = new Date(dateStr);
+    target.setHours(0,0,0,0);
+    
+    const diffTime = target.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return "Passed";
+    if (diffDays === 0) return "Today! ⚡";
+    if (diffDays === 1) return "Tomorrow! 🚨";
+    return `${diffDays} days left`;
+  };
+
+  const getDaysRemainingColor = (dateStr: string) => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const target = new Date(dateStr);
+    target.setHours(0,0,0,0);
+    
+    const diffTime = target.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays >= 0 && diffDays <= 7) return COLORS.error;
+    return COLORS.muted;
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+        {/* DOCUMENT UPLOAD SECTION */}
+        <Text style={styles.sectionLabel}>📁 Auto-fill from Documents</Text>
+        <Text style={styles.sectionSubtitle}>
+          Upload a screenshot of your timetable or a PDF copy of your syllabus. Gemini will parse and sync the structures.
+        </Text>
+
+        <View style={styles.uploadRow}>
+          <TouchableOpacity
+            style={styles.uploadCard}
+            onPress={handlePickTimetableImage}
+            disabled={uploading !== null}
+          >
+            {uploading === "timetable" ? (
+              <View style={{ alignItems: "center" }}>
+                <ActivityIndicator size="small" color={COLORS.accent} />
+                <Text style={[styles.uploadCardSub, { marginTop: 8, color: COLORS.accent }]}>Reading your timetable...</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.uploadCardIcon}>📅</Text>
+                <Text style={styles.uploadCardTitle}>Upload Timetable</Text>
+                <Text style={styles.uploadCardSub}>Screenshot (max 5MB)</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.uploadCard}
+            onPress={handlePickSyllabusPdf}
+            disabled={uploading !== null}
+          >
+            {uploading === "syllabus" ? (
+              <View style={{ alignItems: "center" }}>
+                <ActivityIndicator size="small" color={COLORS.accent} />
+                <Text style={[styles.uploadCardSub, { marginTop: 8, color: COLORS.accent }]}>Reading your syllabus...</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.uploadCardIcon}>📖</Text>
+                <Text style={styles.uploadCardTitle}>Upload Syllabus PDF</Text>
+                <Text style={styles.uploadCardSub}>Manual fallback (max 5MB)</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* SUBJECT PROMPT MODAL */}
+        <Modal
+          visible={showSubjectPrompt}
+          transparent={true}
+          animationType="fade"
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.promptContainer}>
+              <Text style={styles.promptHeader}>Target Subject</Text>
+              <Text style={styles.promptSub}>Type the course/subject name exactly (e.g. Design and Analysis of Algorithms, DBMS):</Text>
+              <TextInput
+                style={styles.promptInput}
+                value={syllabusSubject}
+                onChangeText={setSyllabusSubject}
+                placeholder="e.g. Operating Systems"
+                placeholderTextColor={COLORS.muted}
+              />
+              <View style={styles.promptButtons}>
+                <TouchableOpacity
+                  style={styles.promptBtnSecondary}
+                  onPress={() => {
+                    setShowSubjectPrompt(false);
+                    setSyllabusFile(null);
+                  }}
+                >
+                  <Text style={styles.btnSecondaryText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.promptBtnPrimary}
+                  onPress={handleUploadSyllabus}
+                >
+                  <Text style={styles.btnPrimaryText}>Extract</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* TIMETABLE CONFIRMATION MODAL */}
+        <Modal
+          visible={showTimetableModal}
+          transparent={true}
+          animationType="slide"
+        >
+          <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+              style={styles.confirmContainer}
+            >
+              <View style={{ flex: 1, justifyContent: "space-between" }}>
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.confirmHeader}>Confirm Extracted Timetable</Text>
+                  <Text style={styles.confirmSub}>
+                    {isEditingTimetable 
+                      ? "Edit the classes below. Leave subject empty to delete/ignore." 
+                      : "Verify the extracted classes for each weekday:"}
+                  </Text>
+                </View>
+
+                <ScrollView style={{ flex: 1, marginBottom: 16 }} keyboardShouldPersistTaps="handled">
+                  {Object.entries(timetableData).map(([day, classes]) => {
+                    // Only show day in read-only mode if it has classes, but show all in edit mode
+                    if (!isEditingTimetable && (!classes || classes.length === 0)) return null;
+
+                    return (
+                      <View key={day} style={styles.daySection}>
+                        <Text style={styles.dayHeader}>{day}</Text>
+                        
+                        {classes && classes.map((cls, idx) => (
+                          <View key={idx} style={isEditingTimetable ? styles.classEditCard : styles.classCard}>
+                            {isEditingTimetable ? (
+                              <>
+                                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                                  <Text style={styles.inputLabel}>Class #{idx + 1}</Text>
+                                  <TouchableOpacity onPress={() => removeClass(day, idx)}>
+                                    <Text style={{ color: COLORS.error, fontSize: 11, fontWeight: "700" }}>Delete 🗑️</Text>
+                                  </TouchableOpacity>
+                                </View>
+                                <TextInput
+                                  style={styles.classInput}
+                                  value={cls.subject}
+                                  onChangeText={(val) => updateClassField(day, idx, "subject", val)}
+                                  placeholder="Subject (e.g. DAA)"
+                                  placeholderTextColor={COLORS.muted}
+                                />
+                                <View style={{ flexDirection: "row", gap: 8 }}>
+                                  <TextInput
+                                    style={[styles.classInput, { flex: 1 }]}
+                                    value={cls.time}
+                                    onChangeText={(val) => updateClassField(day, idx, "time", val)}
+                                    placeholder="Time (e.g. 09:00)"
+                                    placeholderTextColor={COLORS.muted}
+                                  />
+                                  <TextInput
+                                    style={[styles.classInput, { flex: 1 }]}
+                                    value={cls.room}
+                                    onChangeText={(val) => updateClassField(day, idx, "room", val)}
+                                    placeholder="Room (e.g. LH-201)"
+                                    placeholderTextColor={COLORS.muted}
+                                  />
+                                  <TextInput
+                                    style={[styles.classInput, { flex: 1 }]}
+                                    value={cls.professor}
+                                    onChangeText={(val) => updateClassField(day, idx, "professor", val)}
+                                    placeholder="Prof (e.g. Dr. Roy)"
+                                    placeholderTextColor={COLORS.muted}
+                                  />
+                                </View>
+                              </>
+                            ) : (
+                              <View>
+                                <Text style={[styles.classText, { fontWeight: "700", color: COLORS.accent }]}>
+                                  {cls.subject || "Untitled Class"}
+                                </Text>
+                                <Text style={[styles.classText, { color: COLORS.muted, marginTop: 4 }]}>
+                                  ⏰ {cls.time || "No time"} | 📍 {cls.room || "No room"} | 👤 {cls.professor || "No prof"}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        ))}
+
+                        {isEditingTimetable && (
+                          <TouchableOpacity 
+                            onPress={() => addClass(day)} 
+                            style={{ 
+                              borderWidth: 1, 
+                              borderColor: COLORS.accent, 
+                              borderStyle: "dashed", 
+                              borderRadius: 8, 
+                              padding: 8, 
+                              alignItems: "center", 
+                              marginTop: 4 
+                            }}
+                          >
+                            <Text style={{ color: COLORS.accent, fontSize: 11, fontFamily: "monospace", fontWeight: "700" }}>
+                              + Add Class to {day}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+
+                <View style={styles.confirmButtons}>
+                  {!isEditingTimetable ? (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.confirmBtnSecondary, { marginRight: "auto" }]}
+                        onPress={() => setShowTimetableModal(false)}
+                      >
+                        <Text style={styles.btnSecondaryText}>Close</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.confirmBtnSecondary, { backgroundColor: "rgba(239, 68, 68, 0.15)", borderRadius: 8, paddingHorizontal: 12 }]}
+                        onPress={() => setIsEditingTimetable(true)}
+                      >
+                        <Text style={[styles.btnSecondaryText, { color: "#ef4444" }]}>Something's wrong ✏️</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.confirmBtnPrimary}
+                        onPress={handleConfirmTimetable}
+                      >
+                        <Text style={styles.btnPrimaryText}>Looks correct ✓</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <TouchableOpacity
+                        style={styles.confirmBtnSecondary}
+                        onPress={() => setIsEditingTimetable(false)}
+                      >
+                        <Text style={styles.btnSecondaryText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.confirmBtnPrimary}
+                        onPress={handleConfirmTimetable}
+                      >
+                        <Text style={styles.btnPrimaryText}>Confirm Changes ✓</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+              </View>
+            </KeyboardAvoidingView>
+          </View>
+        </Modal>
+
+        {/* SYLLABUS CONFIRMATION MODAL */}
+        <Modal
+          visible={showSyllabusModal}
+          transparent={true}
+          animationType="slide"
+        >
+          <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+              style={styles.confirmContainer}
+            >
+              <Text style={styles.confirmHeader}>Confirm Extracted Syllabus</Text>
+              <Text style={styles.confirmSub}>Review syllabus structure and units content. Make manual tweaks to JSON text if needed:</Text>
+              
+              <TextInput
+                style={styles.jsonInput}
+                value={rawSyllabusJson}
+                onChangeText={setRawSyllabusJson}
+                multiline={true}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <View style={styles.confirmButtons}>
+                <TouchableOpacity
+                  style={styles.confirmBtnSecondary}
+                  onPress={() => setShowSyllabusModal(false)}
+                >
+                  <Text style={styles.btnSecondaryText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.confirmBtnPrimary}
+                  onPress={handleConfirmSyllabus}
+                >
+                  <Text style={styles.btnPrimaryText}>Save Syllabus</Text>
+                </TouchableOpacity>
+              </View>
+            </KeyboardAvoidingView>
+          </View>
+        </Modal>
+
+        {/* MANUAL MILESTONE ADDITION */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionLabel}>🎓 Academic Milestones</Text>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => setShowAddForm(!showAddForm)}
+          >
+            <Text style={styles.addButtonText}>
+              {showAddForm ? "Close Form" : "+ Add Milestone"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {showAddForm && (
+          <View style={styles.addForm}>
+            <Text style={styles.formTitle}>Add Milestone</Text>
+            
+            <View style={styles.formInputGroup}>
+              <Text style={styles.inputLabel}>Title</Text>
+              <TextInput
+                style={styles.textInput}
+                value={title}
+                onChangeText={setTitle}
+                placeholder="e.g. CIE-1: Database Systems"
+                placeholderTextColor={COLORS.muted}
+              />
+            </View>
+
+            <View style={styles.inputsRow}>
+              <View style={styles.inputCol}>
+                <Text style={styles.inputLabel}>Due Date (YYYY-MM-DD)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={date}
+                  onChangeText={setDate}
+                  placeholder="e.g. 2026-06-25"
+                  placeholderTextColor={COLORS.muted}
+                />
+              </View>
+              <View style={styles.inputCol}>
+                <Text style={styles.inputLabel}>Milestone Type</Text>
+                <View style={styles.typeSelector}>
+                  {["cie", "see", "assignment", "lab_record", "viva"].map(t => (
+                    <TouchableOpacity
+                      key={t}
+                      style={[styles.typeButton, type === t && styles.selectedTypeButton]}
+                      onPress={() => setType(t as any)}
+                    >
+                      <Text style={[styles.typeButtonText, type === t && styles.selectedTypeButtonText]}>
+                        {t.toUpperCase().replace("_", " ")}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.formInputGroup}>
+              <Text style={styles.inputLabel}>Description</Text>
+              <TextInput
+                style={[styles.textInput, styles.textArea]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Details (modules covered, grading weights, etc.)"
+                placeholderTextColor={COLORS.muted}
+                multiline={true}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={handleAddEvent}
+              disabled={savingEvent}
+            >
+              {savingEvent ? (
+                <ActivityIndicator size="small" color="#0c0e14" />
+              ) : (
+                <Text style={styles.submitButtonText}>Save Milestone</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* EVENTS LIST */}
+        {loadingEvents ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={COLORS.accent} />
+          </View>
+        ) : events.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>No academic milestones registered yet. Fill them in above, upload a document, or tell the AI assistant.</Text>
+          </View>
+        ) : (
+          events.map(event => {
+            const daysColor = getDaysRemainingColor(event.date);
+            const daysText = getDaysRemainingText(event.date);
+            
+            return (
+              <View key={event.id} style={styles.eventCard}>
+                <View style={styles.eventHeader}>
+                  <View style={styles.eventTitleCol}>
+                    <Text style={styles.eventTitle}>{event.title}</Text>
+                    <View style={styles.badgeContainer}>
+                      <Text style={styles.badgeText}>{event.type.toUpperCase()}</Text>
+                    </View>
+                    {event.confidence === "scraped" && (
+                      <View style={[styles.badgeContainer, { backgroundColor: "rgba(245, 158, 11, 0.15)" }]}>
+                        <Text style={[styles.badgeText, { color: "#f59e0b" }]}>⚠️ TENTATIVE</Text>
+                      </View>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDeleteEvent(event.id)}
+                  >
+                    <Text style={styles.deleteButtonText}>🗑️</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {event.description ? (
+                  <Text style={styles.eventDesc}>{event.description}</Text>
+                ) : null}
+
+                <View style={styles.eventFooter}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <Text style={styles.eventDate}>📅 {event.date}</Text>
+                    {event.confidence === "scraped" && (
+                      <TouchableOpacity
+                        onPress={() => handleConfirmEvent(event.id)}
+                        style={{
+                          backgroundColor: COLORS.accent,
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                          borderRadius: 4,
+                        }}
+                      >
+                        <Text style={{ color: "#0c0e14", fontSize: 9, fontWeight: "700" }}>Confirm Date</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <Text style={[styles.daysLeft, { color: daysColor }]}>{daysText}</Text>
+                </View>
+              </View>
+            );
+          })
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.bg
+  },
+  scrollContainer: {
+    padding: 20,
+    paddingBottom: 40
+  },
+  sectionLabel: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: "monospace",
+    marginBottom: 6
+  },
+  sectionSubtitle: {
+    color: COLORS.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 16
+  },
+  uploadRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 24
+  },
+  uploadCard: {
+    flex: 1,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 120
+  },
+  uploadCardIcon: {
+    fontSize: 24,
+    marginBottom: 8
+  },
+  uploadCardTitle: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 4
+  },
+  uploadCardSub: {
+    color: COLORS.muted,
+    fontSize: 10,
+    fontFamily: "monospace"
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16
+  },
+  addButton: {
+    backgroundColor: "rgba(0, 229, 160, 0.1)",
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5
+  },
+  addButtonText: {
+    color: COLORS.accent,
+    fontSize: 11,
+    fontFamily: "monospace",
+    fontWeight: "700"
+  },
+  addForm: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20
+  },
+  formTitle: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 12
+  },
+  formInputGroup: {
+    marginBottom: 12
+  },
+  inputLabel: {
+    color: COLORS.muted,
+    fontSize: 10,
+    fontFamily: "monospace",
+    marginBottom: 6
+  },
+  textInput: {
+    backgroundColor: COLORS.bg,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 12,
+    fontFamily: "monospace"
+  },
+  inputsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12
+  },
+  inputCol: {
+    flex: 1
+  },
+  typeSelector: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6
+  },
+  typeButton: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4
+  },
+  selectedTypeButton: {
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent
+  },
+  typeButtonText: {
+    color: COLORS.muted,
+    fontSize: 9,
+    fontFamily: "monospace",
+    fontWeight: "700"
+  },
+  selectedTypeButtonText: {
+    color: "#0c0e14"
+  },
+  textArea: {
+    minHeight: 60,
+    textAlignVertical: "top"
+  },
+  submitButton: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: "center"
+  },
+  submitButtonText: {
+    color: "#0c0e14",
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  loadingContainer: {
+    paddingVertical: 20,
+    alignItems: "center"
+  },
+  emptyCard: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center"
+  },
+  emptyText: {
+    color: COLORS.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: "center"
+  },
+  eventCard: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12
+  },
+  eventHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8
+  },
+  eventTitleCol: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 8
+  },
+  eventTitle: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  badgeContainer: {
+    backgroundColor: "rgba(90, 96, 128, 0.15)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4
+  },
+  badgeText: {
+    color: COLORS.muted,
+    fontSize: 8,
+    fontFamily: "monospace",
+    fontWeight: "700"
+  },
+  deleteButton: {
+    padding: 4
+  },
+  deleteButtonText: {
+    fontSize: 14
+  },
+  eventDesc: {
+    color: COLORS.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 12
+  },
+  eventFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    paddingTop: 10
+  },
+  eventDate: {
+    color: COLORS.text,
+    fontSize: 11,
+    fontFamily: "monospace"
+  },
+  daysLeft: {
+    fontSize: 11,
+    fontFamily: "monospace",
+    fontWeight: "700"
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20
+  },
+  promptContainer: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 20,
+    padding: 20,
+    width: "100%",
+    maxWidth: 320
+  },
+  promptHeader: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 8
+  },
+  promptSub: {
+    color: COLORS.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    marginBottom: 16
+  },
+  promptInput: {
+    backgroundColor: COLORS.bg,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    marginBottom: 20
+  },
+  promptButtons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12
+  },
+  promptBtnSecondary: {
+    paddingVertical: 8,
+    paddingHorizontal: 16
+  },
+  promptBtnPrimary: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16
+  },
+  btnSecondaryText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: "600"
+  },
+  btnPrimaryText: {
+    color: "#0c0e14",
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  confirmContainer: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 20,
+    padding: 20,
+    width: "100%",
+    height: "90%",
+    justifyContent: "space-between"
+  },
+  confirmHeader: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  confirmSub: {
+    color: COLORS.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 4,
+    marginBottom: 12
+  },
+  jsonInput: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+    color: COLORS.accent,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    padding: 12,
+    fontFamily: "monospace",
+    fontSize: 11,
+    textAlignVertical: "top",
+    marginBottom: 16
+  },
+  confirmButtons: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12
+  },
+  confirmBtnSecondary: {
+    paddingVertical: 10,
+    paddingHorizontal: 16
+  },
+  confirmBtnPrimary: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20
+  },
+  daySection: {
+    marginBottom: 16
+  },
+  dayHeader: {
+    color: COLORS.accent,
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 8,
+    fontFamily: "monospace"
+  },
+  classCard: {
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8
+  },
+  classText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontFamily: "monospace"
+  },
+  classEditCard: {
+    backgroundColor: COLORS.bg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+    gap: 6
+  },
+  classInput: {
+    backgroundColor: COLORS.surface,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    fontSize: 11,
+    fontFamily: "monospace"
+  }
+});

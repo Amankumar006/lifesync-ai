@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal AI Agent — Project Blueprint</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --ink: #0a0a0f;
+            --paper: #f5f0e8;
+            --accent: #ff4e1a;
+            --accent2: #1a6eff;
+            --accent3: #00c97a;
+            --muted: #7a7568;
+            --border: #d6cfbf;
+            --card: #faf7f0;
+            --highlight: #fff8e1;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--paper);
+            color: var(--ink);
+            font-family: 'Space Mono', monospace;
+            font-size: 13px;
+            line-height: 1.7;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Grain texture overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.6;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 0 24px 80px;
+        }
+
+        /* ── HEADER ── */
+        header {
+            border-bottom: 2px solid var(--ink);
+            padding: 48px 0 32px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 12px;
+        }
+
+        h1 {
+            font-family: 'Syne', sans-serif;
+            font-size: clamp(36px, 6vw, 72px);
+            font-weight: 800;
+            line-height: 0.95;
+            letter-spacing: -0.03em;
+            color: var(--ink);
+        }
+
+        h1 .accent-word {
+            color: var(--accent);
+            display: inline-block;
+        }
+
+        .header-meta {
+            display: flex;
+            gap: 24px;
+            margin-top: 24px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            font-size: 10px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            border: 1.5px solid var(--ink);
+            padding: 4px 10px;
+            font-family: 'Space Mono', monospace;
+        }
+
+        .badge.orange {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .badge.blue {
+            border-color: var(--accent2);
+            color: var(--accent2);
+        }
+
+        .badge.green {
+            border-color: var(--accent3);
+            color: var(--accent3);
+        }
+
+        /* ── SECTION ── */
+        section {
+            margin-top: 56px;
+            animation: fadeUp 0.5s ease both;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .section-header {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 12px;
+            border-bottom: 1.5px solid var(--border);
+        }
+
+        .section-num {
+            font-family: 'Syne', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.2em;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        h2 {
+            font-family: 'Syne', sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--ink);
+        }
+
+        /* ── VISION BLOCK ── */
+        .vision-block {
+            background: var(--ink);
+            color: var(--paper);
+            padding: 32px 36px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .vision-block::before {
+            content: '"';
+            font-family: 'Syne', sans-serif;
+            font-size: 200px;
+            font-weight: 800;
+            position: absolute;
+            top: -40px;
+            right: 20px;
+            opacity: 0.07;
+            line-height: 1;
+            color: var(--accent);
+        }
+
+        .vision-block p {
+            font-size: 15px;
+            line-height: 1.8;
+            position: relative;
+            z-index: 1;
+        }
+
+        .vision-block strong {
+            color: var(--accent);
+        }
+
+        /* ── GRID CARDS ── */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 2px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1.5px solid var(--border);
+            padding: 24px;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: default;
+        }
+
+        .card:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 4px 4px 0 var(--ink);
+            z-index: 1;
+        }
+
+        .card-icon {
+            font-size: 28px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .card-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin-bottom: 8px;
+            color: var(--ink);
+        }
+
+        .card-body {
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.7;
+        }
+
+        .card-tag {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            font-size: 9px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--muted);
+            border: 1px solid var(--border);
+            padding: 2px 6px;
+        }
+
+        /* ── MODE TOGGLE VISUAL ── */
+        .mode-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px;
+        }
+
+        .mode-panel {
+            padding: 28px;
+            border: 1.5px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mode-panel.weekday {
+            background: var(--ink);
+            color: var(--paper);
+        }
+
+        .mode-panel.weekend {
+            background: var(--highlight);
+            color: var(--ink);
+        }
+
+        .mode-label {
+            font-family: 'Syne', sans-serif;
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .mode-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .weekday .mode-dot {
+            background: var(--accent);
+        }
+
+        .weekend .mode-dot {
+            background: var(--accent3);
+        }
+
+        .timeline {
+            list-style: none;
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 4px;
+            top: 4px;
+            bottom: 4px;
+            width: 1px;
+            background: currentColor;
+            opacity: 0.2;
+        }
+
+        .timeline li {
+            position: relative;
+            font-size: 11px;
+            line-height: 1.6;
+            padding: 2px 0;
+            opacity: 0.85;
+        }
+
+        .timeline li::before {
+            content: '';
+            position: absolute;
+            left: -18px;
+            top: 7px;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: currentColor;
+            opacity: 0.5;
+        }
+
+        .timeline .time {
+            font-family: 'Space Mono', monospace;
+            font-size: 10px;
+            opacity: 0.5;
+            display: inline-block;
+            width: 44px;
+        }
+
+        /* ── ARCH DIAGRAM ── */
+        .arch-diagram {
+            border: 1.5px solid var(--border);
+            background: var(--card);
+            padding: 36px 24px;
+            position: relative;
+        }
+
+        .arch-layer {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            margin-bottom: 2px;
+        }
+
+        .arch-label {
+            font-size: 9px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
+            padding: 8px 12px;
+            border: 1.5px solid var(--border);
+            background: var(--paper);
+            display: flex;
+            align-items: center;
+            min-width: 36px;
+            flex-shrink: 0;
+        }
+
+        .arch-boxes {
+            display: flex;
+            gap: 2px;
+            flex: 1;
+        }
+
+        .arch-box {
+            flex: 1;
+            padding: 14px 16px;
+            border: 1.5px solid var(--border);
+            font-size: 11px;
+            font-family: 'Space Mono', monospace;
+            position: relative;
+            transition: background 0.2s;
+        }
+
+        .arch-box:hover {
+            background: var(--highlight);
+        }
+
+        .arch-box .box-name {
+            font-family: 'Syne', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--ink);
+        }
+
+        .arch-box .box-tech {
+            color: var(--muted);
+            font-size: 10px;
+        }
+
+        .arch-box .box-accent {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+        }
+
+        .frontend .box-accent {
+            background: var(--accent2);
+        }
+
+        .backend .box-accent {
+            background: var(--accent);
+        }
+
+        .data .box-accent {
+            background: var(--accent3);
+        }
+
+        /* ── FUTURE PILLS ── */
+        .future-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .future-item {
+            border: 1.5px solid var(--border);
+            padding: 20px;
+            background: var(--card);
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .future-item:hover {
+            border-color: var(--ink);
+            transform: translate(-2px, -2px);
+            box-shadow: 3px 3px 0 var(--ink);
+        }
+
+        .future-item .fi-year {
+            font-size: 10px;
+            letter-spacing: 0.15em;
+            color: var(--accent);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .future-item .fi-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .future-item .fi-body {
+            font-size: 11px;
+            color: var(--muted);
+            line-height: 1.65;
+        }
+
+        /* ── TECH STACK TABLE ── */
+        .stack-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .stack-table th {
+            font-family: 'Syne', sans-serif;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            text-align: left;
+            padding: 10px 16px;
+            background: var(--ink);
+            color: var(--paper);
+            border: 1.5px solid var(--ink);
+        }
+
+        .stack-table td {
+            padding: 10px 16px;
+            font-size: 12px;
+            border: 1.5px solid var(--border);
+            vertical-align: top;
+            background: var(--card);
+        }
+
+        .stack-table tr:hover td {
+            background: var(--highlight);
+        }
+
+        .stack-table td:first-child {
+            font-family: 'Syne', sans-serif;
+            font-weight: 700;
+            color: var(--muted);
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            width: 120px;
+        }
+
+        .tech-pill {
+            display: inline-block;
+            background: var(--ink);
+            color: var(--paper);
+            font-size: 10px;
+            padding: 2px 8px;
+            font-family: 'Space Mono', monospace;
+            margin: 2px 2px 2px 0;
+        }
+
+        .tech-pill.orange {
+            background: var(--accent);
+        }
+
+        .tech-pill.blue {
+            background: var(--accent2);
+        }
+
+        .tech-pill.green {
+            background: var(--accent3);
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            margin-top: 72px;
+            padding-top: 24px;
+            border-top: 2px solid var(--ink);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--muted);
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        /* ── CALLOUT ── */
+        .callout {
+            border-left: 3px solid var(--accent);
+            padding: 16px 20px;
+            background: var(--highlight);
+            margin-top: 20px;
+            font-size: 12px;
+            line-height: 1.8;
+        }
+
+        .callout strong {
+            font-family: 'Syne', sans-serif;
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--accent);
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        /* ── CONNECTOR ARROWS ── */
+        .arrow-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 6px 0;
+            color: var(--muted);
+            font-size: 18px;
+            letter-spacing: 4px;
+        }
+
+        @media (max-width: 600px) {
+            .mode-split {
+                grid-template-columns: 1fr;
+            }
+
+            .arch-boxes {
+                flex-direction: column;
+            }
+
+            .arch-layer {
+                flex-direction: column;
+            }
+
+            .arch-label {
+                writing-mode: horizontal-tb;
+                transform: none;
+                padding: 8px 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- HEADER -->
+        <header>
+            <div class="header-label">Project Blueprint · Personal AI Agent · 2026</div>
+            <h1>Personal<br><span class="accent-word">AI Agent</span></h1>
+            <div class="header-meta">
+                <span class="badge orange">Students & Professionals</span>
+                <span class="badge blue">Expo / React Native</span>
+                <span class="badge green">LangChain + Gemini</span>
+                <span class="badge">Firebase · FastAPI</span>
+            </div>
+        </header>
+
+        <!-- SECTION 1: VISION -->
+        <section style="animation-delay:0.05s">
+            <div class="section-header">
+                <span class="section-num">01</span>
+                <h2>Project Vision</h2>
+            </div>
+            <div class="vision-block">
+                <p>
+                    Build a unique, <strong>all-in-one personal assistant</strong> mobile application for students and
+                    working professionals. Instead of juggling multiple apps for to-do lists, calendars, and
+                    entertainment, this AI agent <strong>deeply understands the user's routine, context, and
+                        preferences</strong> — seamlessly managing their schedule while adapting to their changing needs
+                    across weekdays and weekends.
+                </p>
+            </div>
+            <div class="callout">
+                <strong>Design Principle</strong>
+                Think of this app not as a productivity tool, but as a <em>digital life co-pilot</em> — one that learns,
+                anticipates, and acts without you needing to ask.
+            </div>
+        </section>
+
+        <!-- SECTION 2: CORE FEATURES -->
+        <section style="animation-delay:0.1s">
+            <div class="section-header">
+                <span class="section-num">02</span>
+                <h2>Core Features</h2>
+            </div>
+
+            <!-- MODE SPLIT -->
+            <div class="mode-split">
+                <div class="mode-panel weekday">
+                    <div class="mode-label">
+                        <span class="mode-dot"></span> Weekday Mode
+                    </div>
+                    <ul class="timeline">
+                        <li><span class="time">06:00</span> Wake up alarm + day brief</li>
+                        <li><span class="time">07:00</span> Breakfast reminder</li>
+                        <li><span class="time">08:30</span> Commute — transit alerts</li>
+                        <li><span class="time">09:00</span> College / work hours</li>
+                        <li><span class="time">13:00</span> Subject + textbook reminders</li>
+                        <li><span class="time">17:00</span> Cleanup + debrief</li>
+                        <li><span class="time">18:30</span> Gym / sports prompt</li>
+                        <li><span class="time">20:00</span> Night study block</li>
+                        <li><span class="time">22:30</span> Dinner → wind-down</li>
+                        <li><span class="time">23:30</span> Sleep reminder</li>
+                    </ul>
+                </div>
+                <div class="mode-panel weekend">
+                    <div class="mode-label">
+                        <span class="mode-dot"></span> Weekend Mode
+                    </div>
+                    <ul class="timeline">
+                        <li><span class="time">09:00</span> Gentle wake — no alarm</li>
+                        <li><span class="time">10:00</span> Late breakfast prompt</li>
+                        <li><span class="time">11:00</span> Self-improvement / project time</li>
+                        <li><span class="time">14:00</span> Optional nap window</li>
+                        <li><span class="time">17:00</span> Evening walk suggestion</li>
+                        <li><span class="time">19:00</span> Dinner plans</li>
+                        <li><span class="time">21:00</span> 🎬 Movie night — TMDB picks</li>
+                        <li><span class="time">00:00</span> Flexible sleep</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- FEATURE CARDS -->
+            <div class="card-grid" style="margin-top:2px">
+                <div class="card">
+                    <span class="card-tag">Academic</span>
+                    <span class="card-icon">📚</span>
+                    <div class="card-title">College Timetabling</div>
+                    <div class="card-body">Proactive reminders for subjects, required textbooks, and assignments based
+                        on the day. Monday vs. Thursday schedules handled automatically.</div>
+                </div>
+                <div class="card">
+                    <span class="card-tag">Location</span>
+                    <span class="card-icon">📍</span>
+                    <div class="card-title">GPS Context Engine</div>
+                    <div class="card-body">Detects when you walk by the gym and prompts a workout. Switches to "Study
+                        Mode" automatically when you arrive at the library.</div>
+                </div>
+                <div class="card">
+                    <span class="card-tag">Entertainment</span>
+                    <span class="card-icon">🎬</span>
+                    <div class="card-title">TMDB Movie Curator</div>
+                    <div class="card-body">Curates personalized movie suggestions for Sat/Sun nights based on your
+                        interests, preferred runtime, and watch history via the TMDB API.</div>
+                </div>
+                <div class="card">
+                    <span class="card-tag">AI Core</span>
+                    <span class="card-icon">🧠</span>
+                    <div class="card-title">Context-Aware Reasoning</div>
+                    <div class="card-body">LangGraph orchestrates multi-step decisions: should the agent check your
+                        timetable, hit the TMDB API, or send a location nudge? It decides.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: ARCHITECTURE -->
+        <section style="animation-delay:0.15s">
+            <div class="section-header">
+                <span class="section-num">03</span>
+                <h2>Technical Architecture</h2>
+            </div>
+
+            <div class="arch-diagram">
+
+                <!-- Frontend Layer -->
+                <div class="arch-layer">
+                    <div class="arch-label">Frontend</div>
+                    <div class="arch-boxes">
+                        <div class="arch-box frontend">
+                            <div class="box-accent"></div>
+                            <div class="box-name">Expo / React Native</div>
+                            <div class="box-tech">RN 0.85 · New Architecture (bridgeless) · Smooth native animations
+                            </div>
+                        </div>
+                        <div class="arch-box frontend">
+                            <div class="box-accent"></div>
+                            <div class="box-name">@ai-sdk/react</div>
+                            <div class="box-tech">Real-time streaming AI chat UI · Hooks for SSE responses</div>
+                        </div>
+                        <div class="arch-box frontend">
+                            <div class="box-accent"></div>
+                            <div class="box-name">Axios</div>
+                            <div class="box-tech">REST calls to backend · Interceptors for auth tokens</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="arrow-row">↕</div>
+
+                <!-- Backend Layer -->
+                <div class="arch-layer">
+                    <div class="arch-label">Backend</div>
+                    <div class="arch-boxes">
+                        <div class="arch-box backend">
+                            <div class="box-accent"></div>
+                            <div class="box-name">FastAPI (Python)</div>
+                            <div class="box-tech">Async REST endpoints · Streaming responses via SSE</div>
+                        </div>
+                        <div class="arch-box backend">
+                            <div class="box-accent"></div>
+                            <div class="box-name">LangChain + LangGraph</div>
+                            <div class="box-tech">Agent orchestration · Tool routing: timetable, TMDB, GPS, calendar
+                            </div>
+                        </div>
+                        <div class="arch-box backend">
+                            <div class="box-accent"></div>
+                            <div class="box-name">Gemini API</div>
+                            <div class="box-tech">LLM reasoning · Context window for routine memory</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="arrow-row">↕</div>
+
+                <!-- Data Layer -->
+                <div class="arch-layer">
+                    <div class="arch-label">Data</div>
+                    <div class="arch-boxes">
+                        <div class="arch-box data">
+                            <div class="box-accent"></div>
+                            <div class="box-name">Firestore</div>
+                            <div class="box-tech">User prefs · To-do lists · Timetables · Cross-device sync</div>
+                        </div>
+                        <div class="arch-box data">
+                            <div class="box-accent"></div>
+                            <div class="box-name">Firebase Auth</div>
+                            <div class="box-tech">Google / Email login · JWT tokens passed to backend</div>
+                        </div>
+                        <div class="arch-box data">
+                            <div class="box-accent"></div>
+                            <div class="box-name">TMDB API</div>
+                            <div class="box-tech">Movie catalog · Personalized recs · Runtime + genre filters</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Stack table -->
+            <table class="stack-table" style="margin-top:2px">
+                <thead>
+                    <tr>
+                        <th>Layer</th>
+                        <th>Technology</th>
+                        <th>Why This Choice</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Mobile</td>
+                        <td>
+                            <span class="tech-pill blue">Expo</span>
+                            <span class="tech-pill blue">React Native 0.85</span>
+                        </td>
+                        <td>Bridgeless new architecture means no JS-native serialization bottleneck. Expo OTA updates
+                            avoid App Store delays.</td>
+                    </tr>
+                    <tr>
+                        <td>AI Chat</td>
+                        <td><span class="tech-pill blue">@ai-sdk/react</span></td>
+                        <td>Built-in hooks for token streaming, loading states, and message history — eliminates
+                            boilerplate.</td>
+                    </tr>
+                    <tr>
+                        <td>API</td>
+                        <td><span class="tech-pill orange">FastAPI</span></td>
+                        <td>Async-native Python framework. Auto-generates OpenAPI docs. Handles SSE streaming out of the
+                            box.</td>
+                    </tr>
+                    <tr>
+                        <td>Agent</td>
+                        <td>
+                            <span class="tech-pill orange">LangChain</span>
+                            <span class="tech-pill orange">LangGraph</span>
+                        </td>
+                        <td>LangGraph's stateful graph model is ideal for complex multi-step agent flows with
+                            conditional tool routing.</td>
+                    </tr>
+                    <tr>
+                        <td>LLM</td>
+                        <td><span class="tech-pill orange">Gemini API</span></td>
+                        <td>Long context window handles full-day routine context. Future path to on-device Gemini Nano
+                            4.</td>
+                    </tr>
+                    <tr>
+                        <td>Database</td>
+                        <td>
+                            <span class="tech-pill green">Firestore</span>
+                            <span class="tech-pill green">Firebase Auth</span>
+                        </td>
+                        <td>Real-time listeners sync across devices instantly. Auth integrates seamlessly with the
+                            mobile SDK.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- SECTION 4: FUTURE PROOFING -->
+        <section style="animation-delay:0.2s">
+            <div class="section-header">
+                <span class="section-num">04</span>
+                <h2>Industry Research & Future-Proofing</h2>
+            </div>
+
+            <div class="callout" style="border-left-color:var(--accent2); margin-bottom:20px">
+                <strong>Mid-2026 Context</strong>
+                Android is evolving from an operating system to an <em>intelligence system</em>. Designing your app as
+                an agent from day one puts you perfectly ahead of the curve.
+            </div>
+
+            <div class="future-grid">
+                <div class="future-item">
+                    <div class="fi-year">Google · 2025–26</div>
+                    <div class="fi-title">AppFunctions API (Android MCP)</div>
+                    <div class="fi-body">Expose your app's tools directly to system-level agents like Gemini. A user
+                        could say "prep my bag for tomorrow" to their phone — your agent handles it in the background.
+                    </div>
+                </div>
+                <div class="future-item">
+                    <div class="fi-year">Google · 2026+</div>
+                    <div class="fi-title">Gemini Nano 4 — On-Device AI</div>
+                    <div class="fi-body">Run parts of your agent logic locally. Reduces cloud latency, saves server
+                        costs, and works offline. A direct upgrade path from the Gemini API integration.</div>
+                </div>
+                <div class="future-item">
+                    <div class="fi-year">Microsoft · 2026</div>
+                    <div class="fi-title">Project Solara</div>
+                    <div class="fi-body">Industry shift from users manually clicking apps to AI agents doing the heavy
+                        lifting. Your agent-first design philosophy is aligned with this OS-level direction.</div>
+                </div>
+                <div class="future-item">
+                    <div class="fi-year">Ecosystem · Now</div>
+                    <div class="fi-title">Agent-First OS Environments</div>
+                    <div class="fi-body">Google's UI automation layers and similar tools show that the winning apps of
+                        2027 will be those that can be orchestrated by external agents — not just used by humans.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 5: BUILD PHASES -->
+        <section style="animation-delay:0.25s">
+            <div class="section-header">
+                <span class="section-num">05</span>
+                <h2>Suggested Build Phases</h2>
+            </div>
+            <div class="card-grid">
+                <div class="card">
+                    <span class="card-tag">Phase 1</span>
+                    <span class="card-icon">🛠</span>
+                    <div class="card-title">Foundation</div>
+                    <div class="card-body">Firebase Auth + Firestore setup. Basic Expo app skeleton. FastAPI backend
+                        running locally. Simple Gemini chat endpoint with streaming.</div>
+                </div>
+                <div class="card">
+                    <span class="card-tag">Phase 2</span>
+                    <span class="card-icon">⚙️</span>
+                    <div class="card-title">Routine Engine</div>
+                    <div class="card-body">Weekday / Weekend mode logic. College timetable stored in Firestore.
+                        LangGraph agent that routes to the right tool based on time + context.</div>
+                </div>
+                <div class="card">
+                    <span class="card-tag">Phase 3</span>
+                    <span class="card-icon">🎬</span>
+                    <div class="card-title">Integrations</div>
+                    <div class="card-body">TMDB API integration for movie nights. GPS location triggers for gym and
+                        library modes. Push notification pipeline via Expo.</div>
+                </div>
+                <div class="card">
+                    <span class="card-tag">Phase 4</span>
+                    <span class="card-icon">🚀</span>
+                    <div class="card-title">Intelligence Layer</div>
+                    <div class="card-body">Preference learning from usage patterns. AppFunctions API exposure. Explore
+                        Gemini Nano on-device for offline core features.</div>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <span>Personal AI Agent · Blueprint v1.0</span>
+            <span>Stack: Expo · FastAPI · LangGraph · Gemini · Firebase</span>
+            <span>June 2026</span>
+        </footer>
+
+    </div>
+</body>
+
+</html>

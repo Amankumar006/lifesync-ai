@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Personal AI Agent — Refined Architecture Blueprint v2</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,600;1,400&family=Anybody:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0c0e14;
+  --surface: #13151e;
+  --surface2: #1a1d2a;
+  --border: #252836;
+  --border2: #2f3347;
+  --text: #e8eaf0;
+  --muted: #6b7196;
+  --dim: #404567;
+  --green: #00e5a0;
+  --blue: #4d9fff;
+  --orange: #ff7c3a;
+  --purple: #b57aff;
+  --red: #ff4f6d;
+  --yellow: #ffd166;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+/* Scanline effect */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.page { max-width: 1000px; margin: 0 auto; padding: 0 24px 100px; }
+
+/* ── HEADER ── */
+.header {
+  border-bottom: 1px solid var(--border2);
+  padding: 60px 0 40px;
+  position: relative;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.header-meta {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  line-height: 2;
+}
+
+.header-meta span {
+  display: block;
+}
+
+.header-meta .dot-green { color: var(--green); }
+.header-meta .dot-blue { color: var(--blue); }
+
+h1 {
+  font-family: 'Anybody', sans-serif;
+  font-size: clamp(40px, 7vw, 88px);
+  font-weight: 900;
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+h1 em {
+  font-style: normal;
+  color: var(--green);
+  display: block;
+}
+
+.version-tag {
+  display: inline-block;
+  background: var(--green);
+  color: var(--bg);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  margin-top: 16px;
+}
+
+.header-desc {
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 520px;
+  line-height: 1.8;
+  margin-top: 20px;
+  border-left: 2px solid var(--border2);
+  padding-left: 16px;
+}
+
+.header-desc strong { color: var(--text); }
+
+/* ── NAV PILLS ── */
+.nav-pills {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+}
+
+.pill {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  cursor: default;
+  transition: all 0.15s;
+  background: var(--surface);
+}
+
+.pill:hover { border-color: var(--green); color: var(--green); }
+.pill.active { border-color: var(--green); color: var(--green); background: rgba(0,229,160,0.06); }
+
+/* ── SECTION ── */
+section { margin-top: 64px; }
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.section-num {
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+
+h2 {
+  font-family: 'Anybody', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.section-tag {
+  margin-left: auto;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--dim);
+  border: 1px solid var(--border);
+  padding: 3px 8px;
+}
+
+/* ── CALLOUT ── */
+.callout {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-left: 3px solid var(--green);
+  padding: 16px 20px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--muted);
+  margin-bottom: 24px;
+}
+
+.callout strong { color: var(--green); font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+.callout em { color: var(--text); font-style: normal; }
+
+.callout.orange { border-left-color: var(--orange); }
+.callout.orange strong { color: var(--orange); }
+.callout.blue { border-left-color: var(--blue); }
+.callout.blue strong { color: var(--blue); }
+.callout.purple { border-left-color: var(--purple); }
+.callout.purple strong { color: var(--purple); }
+
+/* ── ARCHITECTURE DIAGRAM ── */
+.arch {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  padding: 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.arch::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--green), transparent);
+  opacity: 0.4;
+}
+
+.arch-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-bottom: 8px;
+}
+
+.arch-layer-label {
+  width: 80px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dim);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  padding: 8px 4px;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.arch-cells {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+}
+
+.cell {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+  position: relative;
+  transition: border-color 0.2s, background 0.2s;
+  cursor: default;
+  min-width: 0;
+}
+
+.cell:hover { border-color: var(--border2); background: var(--surface2); }
+
+.cell-accent {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+
+.cell.green .cell-accent { background: var(--green); }
+.cell.blue .cell-accent { background: var(--blue); }
+.cell.orange .cell-accent { background: var(--orange); }
+.cell.purple .cell-accent { background: var(--purple); }
+.cell.yellow .cell-accent { background: var(--yellow); }
+.cell.red .cell-accent { background: var(--red); }
+
+.cell-name {
+  font-family: 'Anybody', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cell-detail {
+  font-size: 10px;
+  color: var(--dim);
+  line-height: 1.6;
+}
+
+.cell-badge {
+  display: inline-block;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: 1px solid var(--border2);
+  padding: 2px 6px;
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.arch-arrow {
+  text-align: center;
+  color: var(--dim);
+  font-size: 11px;
+  letter-spacing: 6px;
+  margin: 4px 0;
+  padding-left: 88px;
+}
+
+/* ── MULTI-AGENT GRAPH ── */
+.agent-graph {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  padding: 32px;
+  position: relative;
+}
+
+.graph-title {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 24px;
+}
+
+.graph-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.agent-node {
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  padding: 12px 16px;
+  min-width: 140px;
+  position: relative;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.agent-node:hover {
+  border-color: var(--border2);
+  transform: translateY(-2px);
+}
+
+.agent-node.orchestrator {
+  border-color: var(--green);
+  background: rgba(0,229,160,0.04);
+  min-width: 200px;
+}
+
+.agent-node .node-icon { font-size: 18px; margin-bottom: 4px; }
+.agent-node .node-name {
+  font-family: 'Anybody', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+.agent-node .node-role { font-size: 9px; color: var(--dim); margin-top: 2px; }
+.agent-node .node-model {
+  font-size: 8px;
+  color: var(--green);
+  border: 1px solid rgba(0,229,160,0.2);
+  display: inline-block;
+  padding: 1px 6px;
+  margin-top: 6px;
+  letter-spacing: 0.1em;
+}
+
+.graph-connector {
+  text-align: center;
+  color: var(--dim);
+  font-size: 16px;
+  padding: 2px 0;
+}
+
+.graph-connector-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  color: var(--dim);
+  font-size: 11px;
+  margin: 4px 0;
+}
+
+/* ── PROTOCOL EXPLAINER ── */
+.protocol-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.protocol-card {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  padding: 24px;
+  position: relative;
+}
+
+.protocol-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 2px;
+}
+
+.protocol-card.mcp::before { background: var(--blue); }
+.protocol-card.a2a::before { background: var(--orange); }
+
+.proto-label {
+  font-family: 'Anybody', sans-serif;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.protocol-card.mcp .proto-label { color: var(--blue); }
+.protocol-card.a2a .proto-label { color: var(--orange); }
+
+.proto-sub { font-size: 10px; color: var(--muted); margin-bottom: 12px; letter-spacing: 0.05em; }
+
+.proto-body { font-size: 11px; color: var(--dim); line-height: 1.8; }
+.proto-body em { color: var(--text); font-style: normal; }
+
+.proto-tools {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.proto-tool {
+  font-size: 9px;
+  border: 1px solid var(--border2);
+  padding: 2px 8px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+/* ── MEMORY ARCHITECTURE ── */
+.memory-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.mem-card {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  padding: 20px;
+}
+
+.mem-type {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.mem-card:nth-child(1) .mem-type { color: var(--green); }
+.mem-card:nth-child(2) .mem-type { color: var(--blue); }
+.mem-card:nth-child(3) .mem-type { color: var(--purple); }
+
+.mem-title {
+  font-family: 'Anybody', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.mem-body { font-size: 11px; color: var(--dim); line-height: 1.7; }
+.mem-body em { color: var(--muted); font-style: normal; }
+
+.mem-impl {
+  margin-top: 12px;
+  font-size: 10px;
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  background: var(--bg);
+  color: var(--muted);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+/* ── HYBRID MODEL DIAGRAM ── */
+.hybrid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+}
+
+.hybrid-side {
+  padding: 28px;
+}
+
+.hybrid-divider {
+  width: 1px;
+  background: var(--border2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  position: relative;
+}
+
+.hybrid-divider-label {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  padding: 8px 6px;
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+}
+
+.hybrid-title {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.on-device .hybrid-title { color: var(--green); }
+.cloud .hybrid-title { color: var(--blue); }
+
+.hybrid-items { list-style: none; }
+.hybrid-items li {
+  font-size: 11px;
+  color: var(--dim);
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.6;
+}
+
+.hybrid-items li:last-child { border-bottom: none; }
+.hybrid-items li em { color: var(--text); font-style: normal; }
+
+/* ── STACK TABLE ── */
+.stack-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stack-table th {
+  font-family: 'Anybody', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 10px 16px;
+  background: var(--surface2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.stack-table td {
+  padding: 12px 16px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  vertical-align: top;
+  line-height: 1.7;
+  color: var(--dim);
+}
+
+.stack-table tr:hover td { background: var(--surface2); }
+
+.stack-table td:first-child {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.stack-table td:nth-child(2) {
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--text);
+}
+
+.tag {
+  display: inline-block;
+  font-size: 9px;
+  border: 1px solid var(--border2);
+  padding: 1px 6px;
+  margin: 2px 2px 2px 0;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.tag.green { border-color: rgba(0,229,160,0.3); color: var(--green); }
+.tag.blue { border-color: rgba(77,159,255,0.3); color: var(--blue); }
+.tag.orange { border-color: rgba(255,124,58,0.3); color: var(--orange); }
+.tag.purple { border-color: rgba(181,122,255,0.3); color: var(--purple); }
+.tag.yellow { border-color: rgba(255,209,102,0.3); color: var(--yellow); }
+
+/* ── PHASE TIMELINE ── */
+.timeline-phases {
+  position: relative;
+}
+
+.timeline-phases::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border2);
+}
+
+.phase {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 4px;
+  position: relative;
+}
+
+.phase-dot {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Anybody', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--dim);
+  position: relative;
+  z-index: 1;
+}
+
+.phase:hover .phase-dot { border-color: var(--green); color: var(--green); }
+
+.phase-body {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 16px 20px;
+  margin-bottom: 4px;
+  transition: border-color 0.2s;
+}
+
+.phase:hover .phase-body { border-color: var(--border2); }
+
+.phase-title {
+  font-family: 'Anybody', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.phase-duration {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 8px;
+}
+
+.phase-tasks {
+  list-style: none;
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.phase-tasks li {
+  padding: 3px 0;
+  line-height: 1.6;
+}
+
+.phase-tasks li::before {
+  content: '→ ';
+  color: var(--dim);
+}
+
+.phase-tasks li em { color: var(--muted); font-style: normal; }
+
+/* ── FUTURE TABLE ── */
+.future-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.future-row {
+  display: flex;
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.future-row:hover { border-color: var(--border2); }
+
+.future-horizon {
+  width: 100px;
+  flex-shrink: 0;
+  padding: 16px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.future-horizon .horizon-period { color: var(--green); }
+.future-horizon .horizon-who { color: var(--dim); }
+
+.future-content { flex: 1; padding: 16px 20px; }
+
+.future-title {
+  font-family: 'Anybody', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.future-body { font-size: 11px; color: var(--dim); line-height: 1.7; }
+.future-body em { color: var(--text); font-style: normal; }
+
+/* ── FOOTER ── */
+footer {
+  margin-top: 80px;
+  padding: 24px 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+footer .footer-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 640px) {
+  .arch-cells { flex-direction: column; }
+  .arch-layer-label { writing-mode: horizontal-tb; transform: none; width: auto; }
+  .arch-row { flex-direction: column; }
+  .protocol-grid { grid-template-columns: 1fr; }
+  .memory-grid { grid-template-columns: 1fr; }
+  .hybrid { grid-template-columns: 1fr; }
+  .hybrid-divider { display: none; }
+}
+
+/* Subtle grid background */
+.arch, .agent-graph, .hybrid {
+  background-image: radial-gradient(var(--border) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-color: var(--surface);
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-top">
+    <div>
+      <h1>Personal<em>AI Agent</em></h1>
+      <div class="version-tag">Refined Architecture v2 · June 2026</div>
+    </div>
+    <div class="header-meta">
+      <span class="dot-green">● Research-backed</span>
+      <span class="dot-blue">● Mid-2026 stack</span>
+      <span>ADK · LangGraph v1 · A2A + MCP</span>
+      <span>Expo SDK 55 · RN 0.85</span>
+      <span>Gemini Cloud + Nano On-Device</span>
+    </div>
+  </div>
+  <p class="header-desc">
+    A <strong>hybrid cloud/on-device multi-agent system</strong> for students and professionals — built on the latest 2026 agent protocols (MCP + A2A), Google ADK for Android, LangGraph v1 persistent memory, and Expo SDK 55 with full New Architecture support. Designed to be <strong>orchestrated, not just used.</strong>
+  </p>
+  <div class="nav-pills">
+    <span class="pill active">Architecture</span>
+    <span class="pill">Agent Graph</span>
+    <span class="pill">Protocols</span>
+    <span class="pill">Memory</span>
+    <span class="pill">Hybrid Inference</span>
+    <span class="pill">Phases</span>
+    <span class="pill">Future</span>
+  </div>
+</header>
+
+<!-- SECTION 1: WHAT CHANGED -->
+<section>
+  <div class="section-header">
+    <span class="section-num">00</span>
+    <h2>What's New in This Version</h2>
+    <span class="section-tag">Research Update</span>
+  </div>
+  <div class="callout">
+    <strong>Key Upgrades from v1</strong>
+    <em>This version incorporates three major 2026 developments:</em> (1) Google's ADK for Android (announced Google I/O May 2026) enables native on-device agent orchestration with Gemini Nano — eliminating a separate backend for routine tasks. (2) LangGraph reached stable v1.0 in Oct 2025 with a new memory architecture separating Checkpointers (session) from Stores (cross-session). (3) The MCP + A2A protocol pair is now the industry standard — MCP connects agents to tools, A2A connects agents to agents.
+  </div>
+</section>
+
+<!-- SECTION 2: FULL SYSTEM ARCHITECTURE -->
+<section>
+  <div class="section-header">
+    <span class="section-num">01</span>
+    <h2>Full System Architecture</h2>
+    <span class="section-tag">6-Layer Stack</span>
+  </div>
+
+  <div class="arch">
+    <!-- Mobile Client -->
+    <div class="arch-row">
+      <div class="arch-layer-label">Mobile Client</div>
+      <div class="arch-cells">
+        <div class="cell green">
+          <div class="cell-accent"></div>
+          <div class="cell-name">Expo SDK 55</div>
+          <div class="cell-detail">React Native 0.85 · New Architecture (bridgeless, JSI, Fabric) · 83% of RN projects now on New Arch</div>
+          <div class="cell-badge">EAS Build</div>
+        </div>
+        <div class="cell green">
+          <div class="cell-accent"></div>
+          <div class="cell-name">Vercel AI SDK 6</div>
+          <div class="cell-detail">useChat hook for streaming · DurableAgent for resumable flows · MCP client built-in</div>
+          <div class="cell-badge">SSE Streaming</div>
+        </div>
+        <div class="cell green">
+          <div class="cell-accent"></div>
+          <div class="cell-name">Expo Notifications</div>
+          <div class="cell-detail">Push alerts for routine reminders · Background tasks via expo-background-fetch · Geofencing triggers</div>
+          <div class="cell-badge">Background</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-arrow">↕ ↕ ↕</div>
+
+    <!-- On-Device Agent Layer (NEW) -->
+    <div class="arch-row">
+      <div class="arch-layer-label">On-Device Agent</div>
+      <div class="arch-cells">
+        <div class="cell yellow">
+          <div class="cell-accent"></div>
+          <div class="cell-name">ADK for Android</div>
+          <div class="cell-detail">Native Kotlin agents running in-app · Orchestrates on-device sub-agents · No network needed for core flows</div>
+          <div class="cell-badge">NEW · I/O 2026</div>
+        </div>
+        <div class="cell yellow">
+          <div class="cell-accent"></div>
+          <div class="cell-name">Gemini Nano via ML Kit</div>
+          <div class="cell-detail">On-device inference · 140M+ Android devices · Privacy-safe local reasoning for reminders & classification</div>
+          <div class="cell-badge">GenaiPrompt API</div>
+        </div>
+        <div class="cell yellow">
+          <div class="cell-accent"></div>
+          <div class="cell-name">Local MCP Tools</div>
+          <div class="cell-detail">Device-local tool calls: calendar read, contacts, GPS, notification scheduler — no cloud round-trip</div>
+          <div class="cell-badge">Offline-capable</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-arrow">↕ ↕ ↕</div>
+
+    <!-- Backend Agent Orchestration -->
+    <div class="arch-row">
+      <div class="arch-layer-label">Cloud Agent</div>
+      <div class="arch-cells">
+        <div class="cell orange">
+          <div class="cell-accent"></div>
+          <div class="cell-name">FastAPI + LangGraph v1</div>
+          <div class="cell-detail">Stateful graph orchestration · PostgresSaver checkpointer · LangGraph Store for cross-session memory</div>
+          <div class="cell-badge">v1.0 Stable</div>
+        </div>
+        <div class="cell orange">
+          <div class="cell-accent"></div>
+          <div class="cell-name">Google ADK Python 2.0</div>
+          <div class="cell-detail">A2A-native agent definitions · Hybrid orchestration: routes heavy reasoning to cloud, delegates simple to on-device</div>
+          <div class="cell-badge">Beta · A2A</div>
+        </div>
+        <div class="cell orange">
+          <div class="cell-accent"></div>
+          <div class="cell-name">MCP Server</div>
+          <div class="cell-detail">Exposes tools to the agent graph: timetable DB, TMDB API, weather, calendar write, push trigger</div>
+          <div class="cell-badge">Anthropic MCP</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-arrow">↕ ↕ ↕</div>
+
+    <!-- LLM Layer -->
+    <div class="arch-row">
+      <div class="arch-layer-label">LLM Layer</div>
+      <div class="arch-cells">
+        <div class="cell blue">
+          <div class="cell-accent"></div>
+          <div class="cell-name">Gemini 2.0 Flash</div>
+          <div class="cell-detail">Root orchestrator LLM · Long context window for full-day routine state · Fast, cost-efficient</div>
+          <div class="cell-badge">Cloud</div>
+        </div>
+        <div class="cell blue">
+          <div class="cell-accent"></div>
+          <div class="cell-name">Gemini Nano 4</div>
+          <div class="cell-detail">On-device sub-agent model · Handles classification, reminders, intent parsing offline</div>
+          <div class="cell-badge">On-Device</div>
+        </div>
+        <div class="cell blue">
+          <div class="cell-accent"></div>
+          <div class="cell-name">LangSmith Traces</div>
+          <div class="cell-detail">Full observability for agent graph · Every tool call, routing decision, and memory access logged</div>
+          <div class="cell-badge">Observability</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-arrow">↕ ↕ ↕</div>
+
+    <!-- Data / Memory -->
+    <div class="arch-row">
+      <div class="arch-layer-label">Data / Memory</div>
+      <div class="arch-cells">
+        <div class="cell purple">
+          <div class="cell-accent"></div>
+          <div class="cell-name">PostgreSQL</div>
+          <div class="cell-detail">LangGraph AsyncPostgresSaver checkpointer · Thread-scoped session continuity · Preferred over SQLite in production</div>
+          <div class="cell-badge">Session Memory</div>
+        </div>
+        <div class="cell purple">
+          <div class="cell-accent"></div>
+          <div class="cell-name">Firestore + Redis</div>
+          <div class="cell-detail">Firestore for user prefs / timetable sync · Redis for cross-session LangGraph Store (LTM, preferences, habits)</div>
+          <div class="cell-badge">Long-term Memory</div>
+        </div>
+        <div class="cell purple">
+          <div class="cell-accent"></div>
+          <div class="cell-name">Firebase Auth</div>
+          <div class="cell-detail">Google/Email SSO · JWT tokens forwarded to FastAPI · OAuth 2.0 for A2A agent identity</div>
+          <div class="cell-badge">Identity</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arch-arrow">↕ ↕ ↕</div>
+
+    <!-- External APIs -->
+    <div class="arch-row">
+      <div class="arch-layer-label">External APIs</div>
+      <div class="arch-cells">
+        <div class="cell red">
+          <div class="cell-accent"></div>
+          <div class="cell-name">TMDB API</div>
+          <div class="cell-detail">Movie curator for weekend nights · Genre, runtime, rating filters · Called via MCP tool</div>
+        </div>
+        <div class="cell red">
+          <div class="cell-accent"></div>
+          <div class="cell-name">Google Maps / Geofencing</div>
+          <div class="cell-detail">Triggers context switches: gym proximity, library arrival, commute detection</div>
+        </div>
+        <div class="cell red">
+          <div class="cell-accent"></div>
+          <div class="cell-name">Android AppFunctions</div>
+          <div class="cell-detail">Expose agent tools to system Gemini · Future: "prep my bag" handled by this agent from outside the app</div>
+          <div class="cell-badge">Future-ready</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- SECTION 3: MULTI-AGENT GRAPH -->
+<section>
+  <div class="section-header">
+    <span class="section-num">02</span>
+    <h2>Multi-Agent Graph Design</h2>
+    <span class="section-tag">LangGraph v1 Nodes</span>
+  </div>
+
+  <div class="callout blue">
+    <strong>Design Pattern</strong>
+    A <em>single root orchestrator</em> (Gemini Flash cloud) routes to <em>specialized sub-agents</em>. On-device sub-agents (Gemini Nano) handle privacy-sensitive, offline-capable tasks. Cloud sub-agents handle complex reasoning, external APIs, and memory writes. Communication between agents uses <em>A2A protocol with Agent Cards</em>.
+  </div>
+
+  <div class="agent-graph">
+    <div class="graph-title">// LangGraph v1 node graph — conditional edges route between agents</div>
+
+    <!-- Orchestrator -->
+    <div class="graph-row">
+      <div class="agent-node orchestrator">
+        <div class="node-icon">🧠</div>
+        <div class="node-name">Root Orchestrator</div>
+        <div class="node-role">Decomposes intent → routes to specialist</div>
+        <div class="node-model">gemini-2.0-flash · cloud</div>
+      </div>
+    </div>
+
+    <div class="graph-connector">│ conditional edge routing</div>
+
+    <!-- Specialist agents row -->
+    <div class="graph-row">
+      <div class="agent-node">
+        <div class="node-icon">📅</div>
+        <div class="node-name">Routine Agent</div>
+        <div class="node-role">Weekday/weekend mode, alarms, schedule</div>
+        <div class="node-model">gemini nano · on-device</div>
+      </div>
+      <div class="agent-node">
+        <div class="node-icon">📚</div>
+        <div class="node-name">Academic Agent</div>
+        <div class="node-role">Timetable, textbooks, assignments</div>
+        <div class="node-model">gemini nano · on-device</div>
+      </div>
+      <div class="agent-node">
+        <div class="node-icon">🎬</div>
+        <div class="node-name">Entertainment Agent</div>
+        <div class="node-role">TMDB curation, watch history</div>
+        <div class="node-model">gemini flash · cloud</div>
+      </div>
+      <div class="agent-node">
+        <div class="node-icon">📍</div>
+        <div class="node-name">Location Agent</div>
+        <div class="node-role">Geofencing, context switches, commute</div>
+        <div class="node-model">gemini nano · on-device</div>
+      </div>
+    </div>
+
+    <div class="graph-connector-row">
+      <span>↓ MCP tools</span>
+      <span>↓ MCP tools</span>
+      <span>↓ MCP tools</span>
+      <span>↓ MCP tools</span>
+    </div>
+
+    <!-- Tool layer -->
+    <div class="graph-row">
+      <div class="agent-node" style="min-width: 120px; background: rgba(0,229,160,0.04); border-color: rgba(0,229,160,0.2)">
+        <div class="node-name" style="font-size:10px">calendar_read</div>
+        <div class="node-role">local MCP</div>
+      </div>
+      <div class="agent-node" style="min-width: 120px; background: rgba(0,229,160,0.04); border-color: rgba(0,229,160,0.2)">
+        <div class="node-name" style="font-size:10px">timetable_db</div>
+        <div class="node-role">Firestore MCP</div>
+      </div>
+      <div class="agent-node" style="min-width: 120px; background: rgba(0,229,160,0.04); border-color: rgba(0,229,160,0.2)">
+        <div class="node-name" style="font-size:10px">tmdb_search</div>
+        <div class="node-role">external MCP</div>
+      </div>
+      <div class="agent-node" style="min-width: 120px; background: rgba(0,229,160,0.04); border-color: rgba(0,229,160,0.2)">
+        <div class="node-name" style="font-size:10px">geofence_trigger</div>
+        <div class="node-role">local MCP</div>
+      </div>
+      <div class="agent-node" style="min-width: 120px; background: rgba(0,229,160,0.04); border-color: rgba(0,229,160,0.2)">
+        <div class="node-name" style="font-size:10px">push_notify</div>
+        <div class="node-role">Expo MCP</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 4: MCP + A2A PROTOCOLS -->
+<section>
+  <div class="section-header">
+    <span class="section-num">03</span>
+    <h2>Protocol Architecture: MCP + A2A</h2>
+    <span class="section-tag">2026 Standards</span>
+  </div>
+
+  <div class="protocol-grid">
+    <div class="protocol-card mcp">
+      <div class="proto-label">MCP</div>
+      <div class="proto-sub">Model Context Protocol · Agent ↔ Tool</div>
+      <div class="proto-body">
+        MCP is the <em>nervous system</em> — it connects your agents to tools and data sources. Every external capability your agent needs (calendar, TMDB, notifications, Firestore) is exposed as an MCP tool with a JSON Schema definition. The agent calls tools without knowing their implementation.
+      </div>
+      <div class="proto-tools">
+        <span class="proto-tool">calendar_read</span>
+        <span class="proto-tool">timetable_fetch</span>
+        <span class="proto-tool">tmdb_search</span>
+        <span class="proto-tool">push_schedule</span>
+        <span class="proto-tool">geofence_set</span>
+        <span class="proto-tool">preference_store</span>
+        <span class="proto-tool">movie_history</span>
+      </div>
+    </div>
+    <div class="protocol-card a2a">
+      <div class="proto-label">A2A</div>
+      <div class="proto-sub">Agent2Agent Protocol · Agent ↔ Agent</div>
+      <div class="proto-body">
+        A2A is the <em>communication network</em> — it lets agents built on different frameworks discover and delegate to each other. Your Root Orchestrator can delegate the movie recommendation task to the Entertainment Agent via A2A's Agent Card system, passing structured Task objects with lifecycle states.
+      </div>
+      <div class="proto-tools">
+        <span class="proto-tool">Agent Cards (discovery)</span>
+        <span class="proto-tool">Task lifecycle</span>
+        <span class="proto-tool">SSE streaming</span>
+        <span class="proto-tool">JSON-RPC / HTTP</span>
+        <span class="proto-tool">Cross-framework</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout orange" style="margin-top:8px">
+    <strong>How They Work Together</strong>
+    Think of it this way: <em>MCP gives each agent its tools</em> (a screwdriver, a hammer). <em>A2A lets agents hire each other</em> (one contractor delegating to a specialist). Both run simultaneously in production — LangGraph handles MCP tool calls natively; ADK Python 2.0 adds A2A Agent Cards so your agents can be discovered and orchestrated by external systems, including Android's system Gemini.
+  </div>
+</section>
+
+<!-- SECTION 5: MEMORY ARCHITECTURE -->
+<section>
+  <div class="section-header">
+    <span class="section-num">04</span>
+    <h2>Memory Architecture</h2>
+    <span class="section-tag">LangGraph v1 Dual-Layer</span>
+  </div>
+
+  <div class="callout purple">
+    <strong>Critical Design Note</strong>
+    LangGraph v1 has <em>two separate memory mechanisms</em> — most apps only implement one and break in production. A Checkpointer handles session continuity (within a thread_id). A Store handles cross-session continuity (across thread_ids). Your user's gym schedule should survive a new chat session — that requires the Store, not the Checkpointer.
+  </div>
+
+  <div class="memory-grid">
+    <div class="mem-card">
+      <div class="mem-type">Layer 1</div>
+      <div class="mem-title">In-Context Window</div>
+      <div class="mem-body">
+        The current conversation messages, tool call history, and current routine state. <em>Managed automatically by LangGraph's MessagesState.</em> Lives only for the duration of one graph execution.
+      </div>
+      <div class="mem-impl">scope: single graph run<br>backend: MessagesState<br>lifetime: ephemeral</div>
+    </div>
+    <div class="mem-card">
+      <div class="mem-type">Layer 2</div>
+      <div class="mem-title">Session Memory (Checkpointer)</div>
+      <div class="mem-body">
+        Persists the full conversation state within one thread_id. Allows a user to pick up a conversation hours later. <em>AsyncPostgresSaver is the production choice</em> — SQLite bottlenecks under load, InMemorySaver evaporates on restart.
+      </div>
+      <div class="mem-impl">scope: per thread_id<br>backend: AsyncPostgresSaver<br>lifetime: session duration</div>
+    </div>
+    <div class="mem-card">
+      <div class="mem-type">Layer 3</div>
+      <div class="mem-title">Long-Term Memory (Store)</div>
+      <div class="mem-body">
+        Cross-session facts, preferences, and habits. When a user returns next week with a new thread_id, the agent still knows their gym schedule, subject preferences, and movie taste. <em>Redis Store for &lt;1ms retrieval</em> with Firestore as backup sync.
+      </div>
+      <div class="mem-impl">scope: cross-session (user_id)<br>backend: Redis Store + Firestore<br>lifetime: permanent</div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 6: HYBRID INFERENCE -->
+<section>
+  <div class="section-header">
+    <span class="section-num">05</span>
+    <h2>Hybrid Inference Model</h2>
+    <span class="section-tag">ADK for Android</span>
+  </div>
+
+  <div class="callout">
+    <strong>The Architectural Shift</strong>
+    Google ADK for Android (launched May 2026) enables a <em>hybrid orchestration pattern</em>: the cloud model acts as root orchestrator while on-device Gemini Nano handles sub-agents for privacy-sensitive and low-latency tasks. This means your app can send routine reminders even with no internet, and never sends the user's location or calendar to the cloud.
+  </div>
+
+  <div class="hybrid">
+    <div class="hybrid-side on-device">
+      <div class="hybrid-title">On-Device (Gemini Nano)</div>
+      <ul class="hybrid-items">
+        <li><em>Routine alarms</em> — wake-up, meal, study reminders</li>
+        <li><em>Intent classification</em> — is this a schedule or movie query?</li>
+        <li><em>Location processing</em> — geofence eval, gym proximity check</li>
+        <li><em>Calendar read/write</em> — local device calendar access</li>
+        <li><em>Offline fallback</em> — full routine mode without cloud</li>
+        <li><em>Privacy-safe</em> — sensitive data never leaves device</li>
+      </ul>
+    </div>
+    <div class="hybrid-divider">
+      <div class="hybrid-divider-label">ADK Hybrid Bridge</div>
+    </div>
+    <div class="hybrid-side cloud">
+      <div class="hybrid-title">Cloud (Gemini 2.0 Flash)</div>
+      <ul class="hybrid-items">
+        <li><em>Root orchestration</em> — complex multi-step reasoning</li>
+        <li><em>TMDB curation</em> — personalized movie recommendations</li>
+        <li><em>Long-term memory writes</em> — learning user preferences over time</li>
+        <li><em>Academic planning</em> — timetable optimization across weeks</li>
+        <li><em>Natural language chat</em> — freeform conversation interface</li>
+        <li><em>A2A agent delegation</em> — publish Agent Card for external use</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 7: TECH STACK -->
+<section>
+  <div class="section-header">
+    <span class="section-num">06</span>
+    <h2>Definitive Tech Stack</h2>
+    <span class="section-tag">June 2026</span>
+  </div>
+
+  <table class="stack-table">
+    <thead>
+      <tr>
+        <th>Layer</th>
+        <th>Technology</th>
+        <th>Rationale</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Mobile Framework</td>
+        <td>
+          <span class="tag green">Expo SDK 55</span>
+          <span class="tag green">React Native 0.85</span>
+        </td>
+        <td>New Architecture is default (83% of projects). Old bridge permanently removed in 0.82. EAS Build handles iOS without Mac. Expo bets on agentic future with $45M raise + Meta RN lead hire.</td>
+      </tr>
+      <tr>
+        <td>AI Chat UI</td>
+        <td>
+          <span class="tag blue">Vercel AI SDK 6</span>
+        </td>
+        <td>SDK 6 added DurableAgent for resumable flows, full MCP client support, and DevTools panel. 20M+ monthly npm downloads. The de-facto standard for streaming AI in React.</td>
+      </tr>
+      <tr>
+        <td>On-Device Agent</td>
+        <td>
+          <span class="tag yellow">ADK for Android 0.1</span>
+          <span class="tag yellow">Gemini Nano via ML Kit</span>
+        </td>
+        <td>Launched Google I/O 2026. GenaiPrompt API enables on-device inference. Available on 140M+ Android devices. Enables offline routine mode and privacy-safe location processing.</td>
+      </tr>
+      <tr>
+        <td>Cloud Agent Framework</td>
+        <td>
+          <span class="tag orange">LangGraph v1.0</span>
+          <span class="tag orange">Google ADK Python 2.0</span>
+        </td>
+        <td>LangGraph is the production standard — graph-based stateful orchestration, audit trails, rollback. ADK adds A2A Agent Cards so your agent is discoverable by system Gemini and external orchestrators.</td>
+      </tr>
+      <tr>
+        <td>Protocols</td>
+        <td>
+          <span class="tag blue">MCP (Anthropic)</span>
+          <span class="tag orange">A2A (Google/Linux Foundation)</span>
+        </td>
+        <td>MCP = agent↔tool standard. A2A = agent↔agent standard. Together they are the 2026 interoperability foundation. LangGraph supports MCP natively; ADK 2.0 is A2A-native.</td>
+      </tr>
+      <tr>
+        <td>LLM Providers</td>
+        <td>
+          <span class="tag blue">Gemini 2.0 Flash (cloud)</span>
+          <span class="tag yellow">Gemini Nano 4 (device)</span>
+        </td>
+        <td>Flash: fast, cost-efficient cloud reasoning with long context. Nano: on-device privacy-safe sub-agent. Hybrid model follows ADK's recommended cloud-orchestrator + on-device-subagent pattern.</td>
+      </tr>
+      <tr>
+        <td>Session Memory</td>
+        <td>
+          <span class="tag purple">AsyncPostgresSaver</span>
+        </td>
+        <td>LangGraph's production-recommended checkpointer. SQLite bottlenecks under concurrency. InMemorySaver evaporates on restart. PostgreSQL handles multi-instance cloud deployments.</td>
+      </tr>
+      <tr>
+        <td>Long-Term Memory</td>
+        <td>
+          <span class="tag purple">LangGraph Store + Redis</span>
+          <span class="tag purple">Firestore (sync)</span>
+        </td>
+        <td>Redis delivers &lt;1ms retrieval for cross-session user preferences. Firestore provides real-time sync to mobile. Critical: Store ≠ Checkpointer — this is the most common LangGraph architecture mistake.</td>
+      </tr>
+      <tr>
+        <td>Observability</td>
+        <td>
+          <span class="tag green">LangSmith</span>
+        </td>
+        <td>Full trace capture for every agent graph execution — tool calls, routing decisions, LLM inputs/outputs. Essential for debugging multi-agent flows in production.</td>
+      </tr>
+      <tr>
+        <td>Backend API</td>
+        <td>
+          <span class="tag orange">FastAPI (Python, async)</span>
+        </td>
+        <td>Async-native. Auto-generates OpenAPI docs. SSE streaming for real-time chat. Houses LangGraph graph and MCP server definitions.</td>
+      </tr>
+      <tr>
+        <td>Auth + Sync</td>
+        <td>
+          <span class="tag green">Firebase Auth</span>
+          <span class="tag green">Firestore</span>
+        </td>
+        <td>Firebase Auth generates JWTs forwarded to FastAPI. OAuth 2.0 for A2A agent identity (recommended by Auth0 for A2A). Firestore for real-time mobile sync of timetables and preferences.</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- SECTION 8: BUILD PHASES -->
+<section>
+  <div class="section-header">
+    <span class="section-num">07</span>
+    <h2>Build Phases</h2>
+    <span class="section-tag">Implementation Roadmap</span>
+  </div>
+
+  <div class="timeline-phases">
+    <div class="phase">
+      <div class="phase-dot">1</div>
+      <div class="phase-body">
+        <div class="phase-duration">Weeks 1–2 · Foundation</div>
+        <div class="phase-title">Project Scaffold + Auth + Basic Agent</div>
+        <ul class="phase-tasks">
+          <li>Init Expo SDK 55 project with <em>New Architecture enabled by default</em></li>
+          <li>FastAPI backend with Firebase Auth JWT middleware</li>
+          <li>LangGraph v1 single-agent with Gemini Flash — basic chat works end-to-end</li>
+          <li>AsyncPostgresSaver checkpointer wired up from day 1 (not InMemory)</li>
+          <li>LangSmith tracing connected — every run is visible</li>
+          <li>Vercel AI SDK 6 <em>useChat</em> hook on mobile, SSE streaming from backend</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-dot">2</div>
+      <div class="phase-body">
+        <div class="phase-duration">Weeks 3–4 · Memory + Routine Engine</div>
+        <div class="phase-title">Dual-Layer Memory + Weekday/Weekend Mode</div>
+        <ul class="phase-tasks">
+          <li>Add Redis LangGraph Store for cross-session user preferences</li>
+          <li>Store timetable, gym schedule, sleep time in Firestore + sync to Store</li>
+          <li>LangGraph conditional edges: time-of-day routing to correct sub-agent</li>
+          <li>Expo Background Fetch + Push Notifications for routine reminders</li>
+          <li>Weekday / Weekend mode toggle with full schedule logic</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-dot">3</div>
+      <div class="phase-body">
+        <div class="phase-duration">Weeks 5–6 · MCP + Specialist Agents</div>
+        <div class="phase-title">MCP Tool Layer + Multi-Agent Routing</div>
+        <ul class="phase-tasks">
+          <li>Define MCP server with tools: <em>timetable_fetch, push_schedule, calendar_write</em></li>
+          <li>Build Academic Agent node — subject reminders, textbook lookup, assignment alerts</li>
+          <li>Build Entertainment Agent — TMDB API via MCP tool, weekend movie curation</li>
+          <li>LangGraph graph now has 4 specialist agents with conditional edge routing</li>
+          <li>A2A Agent Cards defined for each agent (using ADK Python 2.0)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-dot">4</div>
+      <div class="phase-body">
+        <div class="phase-duration">Weeks 7–8 · On-Device + Location</div>
+        <div class="phase-title">ADK for Android + Gemini Nano + Geofencing</div>
+        <ul class="phase-tasks">
+          <li>Integrate ADK for Android Kotlin library into Expo via native module</li>
+          <li>Routine Agent + Location Agent run on-device via Gemini Nano (ML Kit GenaiPrompt)</li>
+          <li>Geofencing triggers: gym proximity, library arrival, home detection</li>
+          <li>Hybrid bridge: on-device agents call cloud orchestrator for complex reasoning</li>
+          <li>Offline mode: full routine functionality works with no network</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-dot">5</div>
+      <div class="phase-body">
+        <div class="phase-duration">Weeks 9–10 · AppFunctions + Polish</div>
+        <div class="phase-title">System-Level Agent Exposure + Production Hardening</div>
+        <ul class="phase-tasks">
+          <li>Expose <em>create_study_block</em>, <em>suggest_movie_tonight</em>, <em>prep_tomorrow_bag</em> via Android AppFunctions</li>
+          <li>App becomes invokable by system Gemini — "Tell my agent to..." works from anywhere</li>
+          <li>LangSmith alert rules for agent failures and unexpected routing</li>
+          <li>Load test PostgresSaver under concurrent users</li>
+          <li>EAS Build pipeline for iOS + Android production builds</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 9: FUTURE PROOFING -->
+<section>
+  <div class="section-header">
+    <span class="section-num">08</span>
+    <h2>Future Roadmap</h2>
+    <span class="section-tag">2026–2027</span>
+  </div>
+
+  <div class="future-items">
+    <div class="future-row">
+      <div class="future-horizon">
+        <span class="horizon-period">Now</span>
+        <span class="horizon-who">Google</span>
+      </div>
+      <div class="future-content">
+        <div class="future-title">ADK for Android + Gemini Nano (Already Available)</div>
+        <div class="future-body">ADK 0.1.0 for Android launched May 2026 at Google I/O. Gemini Nano on 140M+ devices. <em>Build this into Phase 4 immediately</em> — it's production-ready enough for on-device sub-agents.</div>
+      </div>
+    </div>
+    <div class="future-row">
+      <div class="future-horizon">
+        <span class="horizon-period">Q3 2026</span>
+        <span class="horizon-who">Google</span>
+      </div>
+      <div class="future-content">
+        <div class="future-title">ADK Stable Releases + AppFunctions GA</div>
+        <div class="future-body">ADK Python 2.0 and ADK for Android expected to exit beta. AppFunctions API (Android MCP equivalent) GA release. This is when your agent becomes <em>callable by system Gemini</em> without any workarounds.</div>
+      </div>
+    </div>
+    <div class="future-row">
+      <div class="future-horizon">
+        <span class="horizon-period">Q4 2026</span>
+        <span class="horizon-who">Ecosystem</span>
+      </div>
+      <div class="future-content">
+        <div class="future-title">A2A Protocol Matures + Cross-App Agent Networks</div>
+        <div class="future-body">A2A (now under Linux Foundation) gains wider adoption. Your agent's <em>Agent Cards</em> can be discovered by other apps, third-party agents, and enterprise workflows. The app becomes a node in a broader agent ecosystem.</div>
+      </div>
+    </div>
+    <div class="future-row">
+      <div class="future-horizon">
+        <span class="horizon-period">2027</span>
+        <span class="horizon-who">Industry</span>
+      </div>
+      <div class="future-content">
+        <div class="future-title">Agent-First OS — No UI Required</div>
+        <div class="future-body">Microsoft Project Solara and Google's UI automation layers point to a world where <em>users don't open apps</em> — they instruct agents. Your app, designed agent-first with AppFunctions + A2A from day one, runs entirely in the background while system agents handle the UX.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-status">
+    <div class="status-dot"></div>
+    <span>Architecture v2 · All sources verified June 2026</span>
+  </div>
+  <span>LangGraph v1 · ADK Android 0.1 · Expo SDK 55 · RN 0.85</span>
+  <span>MCP + A2A · Gemini Flash + Nano</span>
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can only read/write their own profile
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Timetables: user owns their own
+    match /timetables/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Tasks: subcollection scoped to user
+    match /tasks/{uid}/items/{taskId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Schedules: user read/write, backend writes via Admin SDK (bypasses rules)
+    match /schedules/{uid}/days/{day} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Academic Events: user owns their own events subcollection
+    match /academic_events/{uid}/items/{eventId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Syllabus Tracker: user owns subject tracking
+    match /syllabus/{uid}/subjects/{subject} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Personal Schedule: user owns their personal blocks
+    match /personal_schedule/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Academic Calendar: scraped data cache
+    match /academic_calendar/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

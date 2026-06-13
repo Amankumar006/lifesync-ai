@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Personal AI Agent",
+    "slug": "personal-ai-agent",
+    "version": "1.0.0",
+    "sdkVersion": "55.0.0",
+    "scheme": "agent",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "plugins": [
+      "expo-router",
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow location access for context-aware schedule reminders (gym proximity, library arrival)."
+        }
+      ]
+    ],
+    "android": {
+      "package": "com.agent",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.yourname.aiagent",
+      "supportsTablet": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7e0b93ad-bd88-4567-8acb-f9599fba47aa"
+      }
+    },
+    "owner": "006aman_kumar"
+  }
+}

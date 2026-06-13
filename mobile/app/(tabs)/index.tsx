@@ -1,0 +1,594 @@
+import React, { useState, useRef } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Modal
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAgentChat } from "../../hooks/useAgentChat";
+import { COLORS, TYPE_COLORS } from "../../constants/colors";
+
+export default function ChatScreen() {
+  const threadId = "default-chat-thread";
+  const {
+    messages,
+    input,
+    setInput,
+    handleSubmit,
+    approveSchedule,
+    isApproving,
+    isLoading,
+    isOffline
+  } = useAgentChat(threadId);
+
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState<any[]>([]);
+  const [originalSchedule, setOriginalSchedule] = useState<any[]>([]);
+  const [expandedBlockIndex, setExpandedBlockIndex] = useState<number | null>(null);
+  const flatListRef = useRef<FlatList>(null);
+
+  const openEditModal = (schedule: any[]) => {
+    setOriginalSchedule(schedule);
+    setSelectedSchedule(JSON.parse(JSON.stringify(schedule))); // Deep copy
+    setExpandedBlockIndex(null);
+    setEditModalVisible(true);
+  };
+
+  const handleSaveEdits = () => {
+    const edits: any[] = [];
+    
+    // Find removed blocks: original blocks that are not in selectedSchedule
+    originalSchedule.forEach(orig => {
+      const stillExists = selectedSchedule.some(sel => sel.title === orig.title);
+      if (!stillExists) {
+        edits.push({ action: "remove", block: orig.title });
+      }
+    });
+
+    // Find moved blocks: selected blocks that exist in original blocks but have a different time
+    selectedSchedule.forEach(sel => {
+      const orig = originalSchedule.find(o => o.title === sel.title);
+      if (orig && orig.time !== sel.time) {
+        edits.push({ action: "move", block: sel.title, new_time: sel.time });
+      }
+    });
+
+    approveSchedule({ approved: false, edits });
+    setEditModalVisible(false);
+  };
+
+  const renderProposedSchedule = (schedule: any[]) => {
+    return (
+      <View style={styles.scheduleCard}>
+        <Text style={styles.scheduleHeader}>📅 Proposed Daily Schedule</Text>
+        {schedule.map((block: any, idx: number) => {
+          const color = TYPE_COLORS[block.type as keyof typeof TYPE_COLORS] ?? COLORS.muted;
+          return (
+            <View key={idx} style={[styles.blockRow, { borderLeftColor: color }]}>
+              <Text style={styles.blockTime}>{block.time}</Text>
+              <View style={styles.blockContent}>
+                <Text style={styles.blockTitle}>{block.title}</Text>
+                {block.notes ? <Text style={styles.blockNotes}>{block.notes}</Text> : null}
+              </View>
+              <Text style={styles.blockDuration}>{block.duration_min}m</Text>
+            </View>
+          );
+        })}
+
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={styles.approveButton}
+            onPress={() => approveSchedule({ approved: true, edits: [] })}
+            disabled={isApproving}
+          >
+            {isApproving ? (
+              <ActivityIndicator size="small" color="#0c0e14" />
+            ) : (
+              <Text style={styles.actionButtonText}>Looks good ✓</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.rejectButton}
+            onPress={() => openEditModal(schedule)}
+            disabled={isApproving}
+          >
+            <Text style={styles.rejectButtonText}>Edit</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  const renderMessageItem = ({ item }: { item: any }) => {
+    const isUser = item.role === "user";
+    
+    let proposedSchedule: any[] | null = null;
+    if (item.data && typeof item.data === "object" && item.data.schedule) {
+      proposedSchedule = item.data.schedule;
+    } else if (item.content && (item.content.includes('"proposed_schedule"') || item.content.startsWith("["))) {
+      try {
+        const parsed = JSON.parse(item.content);
+        if (parsed && typeof parsed === "object" && parsed.type === "proposed_schedule" && Array.isArray(parsed.schedule)) {
+          proposedSchedule = parsed.schedule;
+        } else if (Array.isArray(parsed)) {
+          proposedSchedule = parsed;
+        }
+      } catch (e) {
+        // Failed parsing
+      }
+    }
+
+    return (
+      <View style={[styles.messageRow, isUser ? styles.userRow : styles.assistantRow]}>
+        <View style={[styles.bubble, isUser ? styles.userBubble : styles.assistantBubble]}>
+          {!proposedSchedule ? (
+            <Text style={[styles.messageText, isUser ? styles.userText : styles.assistantText]}>
+              {item.content}
+            </Text>
+          ) : (
+            renderProposedSchedule(proposedSchedule)
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+      >
+        {isOffline && (
+          <View style={styles.offlineBanner}>
+            <Text style={styles.offlineBannerText}>Agent offline — check your connection</Text>
+          </View>
+        )}
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessageItem}
+          keyExtractor={(item, index) => item.id || index.toString()}
+          contentContainerStyle={styles.messageList}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        />
+
+        {isLoading || isApproving ? (
+          <View style={styles.loadingIndicator}>
+            <ActivityIndicator size="small" color={COLORS.accent} />
+            <Text style={styles.loadingText}>
+              {isApproving ? "Updating schedule..." : "Agent is thinking..."}
+            </Text>
+          </View>
+        ) : null}
+
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Type a message to your co-pilot..."
+            placeholderTextColor={COLORS.muted}
+            value={input}
+            onChangeText={setInput}
+            onSubmitEditing={handleSubmit}
+          />
+          <TouchableOpacity style={styles.sendButton} onPress={handleSubmit}>
+            <Text style={styles.sendButtonText}>Send</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Proposed Schedule</Text>
+            <Text style={styles.modalSubtitle}>Tap a block to change its start time or remove it.</Text>
+            
+            <FlatList
+              data={selectedSchedule}
+              keyExtractor={(item, index) => `${item.title}-${index}`}
+              contentContainerStyle={styles.modalList}
+              renderItem={({ item, index }) => {
+                const color = TYPE_COLORS[item.type as keyof typeof TYPE_COLORS] ?? COLORS.muted;
+                const isExpanded = expandedBlockIndex === index;
+                
+                return (
+                  <View style={styles.modalBlockContainer}>
+                    <TouchableOpacity
+                      style={[styles.modalBlockRow, { borderLeftColor: color }]}
+                      onPress={() => setExpandedBlockIndex(isExpanded ? null : index)}
+                    >
+                      <Text style={styles.modalBlockTime}>{item.time}</Text>
+                      <View style={styles.blockContent}>
+                        <Text style={styles.blockTitle}>{item.title}</Text>
+                        <Text style={styles.modalBlockType}>{item.type.toUpperCase()}</Text>
+                      </View>
+                      <Text style={styles.modalExpandIcon}>{isExpanded ? "▲" : "▼"}</Text>
+                    </TouchableOpacity>
+                    
+                    {isExpanded && (
+                      <View style={styles.expandedControls}>
+                        <View style={styles.timeInputRow}>
+                          <Text style={styles.inputLabel}>Start Time:</Text>
+                          <TextInput
+                            style={styles.timeInput}
+                            value={item.time}
+                            placeholder="HH:MM"
+                            placeholderTextColor={COLORS.muted}
+                            onChangeText={(text) => {
+                              setSelectedSchedule(prev => prev.map((b, idx) => idx === index ? { ...b, time: text } : b));
+                            }}
+                          />
+                        </View>
+                        <TouchableOpacity
+                          style={styles.removeBlockButton}
+                          onPress={() => {
+                            setSelectedSchedule(prev => prev.filter((_, idx) => idx !== index));
+                            setExpandedBlockIndex(null);
+                          }}
+                        >
+                          <Text style={styles.removeBlockText}>Remove Block</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                );
+              }}
+            />
+            
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity style={styles.modalSaveButton} onPress={handleSaveEdits}>
+                <Text style={styles.modalSaveText}>Save Changes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalCancelButton} onPress={() => setEditModalVisible(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+  },
+  messageList: {
+    padding: 16,
+    paddingBottom: 24,
+  },
+  messageRow: {
+    flexDirection: "row",
+    marginBottom: 16,
+    width: "100%",
+  },
+  userRow: {
+    justifyContent: "flex-end",
+  },
+  assistantRow: {
+    justifyContent: "flex-start",
+  },
+  bubble: {
+    maxWidth: "85%",
+    borderRadius: 20,
+    padding: 14,
+  },
+  userBubble: {
+    backgroundColor: "rgba(0, 229, 160, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 229, 160, 0.2)",
+    borderBottomRightRadius: 4,
+  },
+  assistantBubble: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderBottomLeftRadius: 4,
+  },
+  messageText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  userText: {
+    color: COLORS.accent,
+  },
+  assistantText: {
+    color: COLORS.text,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    alignItems: "center",
+  },
+  textInput: {
+    flex: 1,
+    backgroundColor: COLORS.bg,
+    color: COLORS.text,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginRight: 12,
+  },
+  sendButton: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sendButtonText: {
+    color: "#0c0e14",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  loadingIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  loadingText: {
+    color: COLORS.muted,
+    fontFamily: "monospace",
+    fontSize: 11,
+  },
+  
+  // Proposed Schedule card styling
+  scheduleCard: {
+    width: "100%",
+    backgroundColor: COLORS.bg,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 16,
+    marginTop: 4,
+  },
+  scheduleHeader: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.text,
+    marginBottom: 12,
+    fontFamily: "monospace",
+  },
+  blockRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderLeftWidth: 3,
+    paddingLeft: 10,
+    paddingVertical: 8,
+    marginBottom: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: 4,
+  },
+  blockTime: {
+    fontSize: 11,
+    color: COLORS.muted,
+    fontFamily: "monospace",
+    width: 48,
+  },
+  blockContent: {
+    flex: 1,
+  },
+  blockTitle: {
+    fontSize: 13,
+    color: COLORS.text,
+    fontWeight: "600",
+  },
+  blockNotes: {
+    fontSize: 10,
+    color: COLORS.muted,
+    marginTop: 2,
+  },
+  blockDuration: {
+    fontSize: 10,
+    color: COLORS.muted,
+    fontFamily: "monospace",
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 16,
+  },
+  approveButton: {
+    flex: 1,
+    backgroundColor: COLORS.accent,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  actionButtonText: {
+    color: "#0c0e14",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  rejectButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.accent,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  rejectButtonText: {
+    color: COLORS.accent,
+    fontWeight: "600",
+    fontSize: 12,
+  },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(8, 9, 13, 0.85)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 24,
+    height: "80%",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.text,
+    fontFamily: "monospace",
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: COLORS.muted,
+    marginBottom: 20,
+  },
+  modalList: {
+    paddingBottom: 24,
+  },
+  modalBlockContainer: {
+    backgroundColor: COLORS.bg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 8,
+    overflow: "hidden",
+  },
+  modalBlockRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderLeftWidth: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  modalBlockTime: {
+    fontSize: 13,
+    color: COLORS.text,
+    fontFamily: "monospace",
+    width: 60,
+    fontWeight: "600",
+  },
+  modalBlockType: {
+    fontSize: 9,
+    color: COLORS.muted,
+    fontWeight: "700",
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
+  modalExpandIcon: {
+    fontSize: 10,
+    color: COLORS.muted,
+    marginLeft: 8,
+  },
+  expandedControls: {
+    backgroundColor: "rgba(30, 33, 48, 0.4)",
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    padding: 16,
+  },
+  timeInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  inputLabel: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  timeInput: {
+    backgroundColor: COLORS.bg,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    fontSize: 13,
+    fontFamily: "monospace",
+    width: 80,
+    textAlign: "center",
+  },
+  removeBlockButton: {
+    backgroundColor: "rgba(255, 79, 109, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 79, 109, 0.3)",
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  removeBlockText: {
+    color: COLORS.error,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  modalActionRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 16,
+    paddingBottom: Platform.OS === "ios" ? 16 : 0,
+  },
+  modalSaveButton: {
+    flex: 2,
+    backgroundColor: COLORS.accent,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  modalSaveText: {
+    color: "#0c0e14",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  modalCancelButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  modalCancelText: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  offlineBanner: {
+    backgroundColor: "rgba(255, 79, 109, 0.15)",
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.error,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+  offlineBannerText: {
+    color: COLORS.error,
+    fontSize: 12,
+    fontWeight: "600",
+    fontFamily: "monospace",
+  },
+});
