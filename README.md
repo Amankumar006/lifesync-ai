@@ -1,51 +1,53 @@
 # LifeSync AI 📅🤖
 
-**LifeSync AI** is an adaptive, agentic daily schedule optimizer and personal assistant. Powered by **LangGraph** and **FastAPI**, it dynamically balances academic deadlines, professional work shifts, and flexible tasks around your non-negotiable personal routines (like meditation, workouts, and sleep). 
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.12-blue.svg" alt="Python 3.12" />
+  <img src="https://img.shields.io/badge/FastAPI-0.109-blue.svg" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/LangGraph-0.1-orange.svg" alt="LangGraph" />
+  <img src="https://img.shields.io/badge/Expo-SDK%2055-black.svg" alt="Expo SDK 55" />
+  <img src="https://img.shields.io/badge/Firebase-Firestore-red.svg" alt="Firestore" />
+  <img src="https://img.shields.io/badge/Build-Passing-brightgreen.svg" alt="Build" />
+</p>
 
-It is designed for students, freelancers, and working professionals who want to maintain high productivity without sacrificing daily habits and well-being.
+**LifeSync AI** is a state-of-the-art, agentic daily schedule optimizer and lifestyle assistant. Built on **LangGraph** (agentic state orchestration), **FastAPI** (streaming backend), and **React Native/Expo** (mobile client), it dynamically constructs balanced, optimal daily agendas for students and professionals alike.
 
----
-
-## 🌟 Key Features
-
-### 1. LangGraph State Graph Orchestration
-- Uses a multi-agent state graph compiled with LangGraph to orchestrate **Intent Classification**, **Context Hydration**, **Dynamic Scheduling**, **Clarification Loops**, and **Human-in-the-Loop (HITL)** approvals.
-- Incorporates session-level memory and cross-session persistence in a PostgreSQL memory store.
-
-### 2. Smart Onboarding & On-the-Fly Discovery
-- If any core information is missing (such as your college, routine habits, or timetable), the agent naturally prompts you with discovery questions during conversation.
-- If you skip or reject a topic (e.g., saying "no"), the agent marks it complete and never asks you about it again.
-
-### 3. Timetable Photo Upload & Parsing
-- Upload a photo of your schedule directly from your phone. 
-- The backend parses the image using Gemini's multimodal vision features to extract classes and timings, saving them directly to Firestore.
-
-### 4. Dynamic VTU Syllabus & Calendar Fetching
-- Provide your college name, branch, semester, and scheme (e.g., *RVCE, 5th Sem CSE, 2022 Scheme*).
-- The system automatically triggers async tasks to scrape or fetch your college's academic calendar and downloads/extracts subjects and unit topics directly from the Visvesvaraya Technological University (VTU) syllabus database.
-
-### 5. Rule-Based Academic & Routine Scheduling
-Constructs daily schedules that automatically respect strict priority rules:
-- **Habit Preservation**: Non-negotiable blocks (e.g., Meditation at 6:00 AM) are strictly protected and cannot collide with other tasks.
-- **CIE Proximity Rules**: Automatically increases study prep slots as exams approach (2-hour daily slots $\le$ 7 days away; 3-hour critical study blocks $\le$ 3 days away).
-- **Holidays & Calendar**: Automatically fetches VTU holidays (e.g., Yoga Day) and excludes college/heavy study expectations on those dates.
-- **Saturday Movie Night**: Saturday night schedules dynamically check your genre preferences, search the TMDB API, and insert a movie recommendation block at 21:30.
-
-### 6. Interactive Reminders & Notifications
-- Approving a proposed schedule automatically logs it to Firestore and registers push reminder notifications for each schedule block.
+The system automatically balances academic deadlines, professional tasks, and hobbies around your **non-negotiable daily habits** (like sleep, workout, and meditation).
 
 ---
 
-## 🛠️ Technology Stack
-
-* **Backend Engine**: FastAPI, Python 3.12, LangGraph, Uvicorn, APScheduler.
-* **Database & Auth**: Firebase Admin SDK (Cloud Firestore), PostgreSQL (for LangGraph memory store).
-* **AI Models**: Google Gemini 2.5 Flash, Groq Llama 3.3 70B (fast backup), Nex-N2-Pro via OpenRouter.
-* **Mobile Client**: React Native, Expo SDK 55, TypeScript.
+## 📖 Table of Contents
+- [🌟 Key Capabilities](#-key-capabilities)
+- [📈 Agentic Workflows & State Graph](#-agentic-workflows--state-graph)
+- [📂 Project Directory Structure](#-project-directory-structure)
+- [🗄️ Firestore Database Schema](#%EF%B8%8F-firestore-database-schema)
+- [🔌 REST API References](#-rest-api-references)
+- [⚙️ Setup & Installation](#%EF%B8%8F-setup--installation)
+- [📅 Core Scheduling Engine Rules](#-core-scheduling-engine-rules)
 
 ---
 
-## 🏗️ Architecture
+## 🌟 Key Capabilities
+
+### 🧠 Intent Classification with Heuristic Fallback
+- Classified via a primary Gemini model (or Groq backup) and automatically falls back to regex-based classification for test users.
+- **Smart Query Routing**: Intelligently identifies retrieval queries (e.g., *"What is my Monday timetable?"*) and routes them to chat instead of overwriting schedules.
+
+### 🖼️ Timetable Vision Extraction
+- Users upload a photo of their college or work timetable (sent as `multipart/form-data` file URI to prevent low-end device OOM crashes).
+- Gemini parses the image, generates structured JSON classes, and stores them securely.
+
+### 📚 Syllabus & Calendar Crawling
+- Input your college (e.g., *RVCE, CSE, 5th Sem, 2022 Scheme*).
+- An asynchronous background scraper fetches the college academic calendar and parses syllabus PDFs directly from the VTU database to feed into your tasks list.
+
+### 🛡️ Wellness & Habit Protection
+- Non-negotiable routines (like Meditation at 6:00 AM) are locked and protected from task/class overlaps.
+
+---
+
+## 📈 Agentic Workflows & State Graph
+
+LifeSync AI uses a state graph to manage chat sessions, parse user details, build calendars, and interrupt for user approval.
 
 ```mermaid
 graph TD
@@ -72,71 +74,143 @@ graph TD
 
 ---
 
-## 🚀 Getting Started
+## 📂 Project Directory Structure
 
-### 1. Prerequisites
-- Python 3.12+
-- Node.js 18+ & npm
-- PostgreSQL database
-- Firebase Project setup
+The repository is divided into a Python backend service and a TypeScript Expo mobile application:
 
-### 2. Backend Setup
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Create and activate a python virtual environment:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   ```
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Place your Firebase Service Account JSON credentials key in the root backend folder and name it `firebase-service-account.json`.
-5. Create a `.env` file from the example:
-   ```bash
-   cp .env.example .env
-   ```
-6. Populate the `.env` variables with your API keys:
-   ```env
-   GEMINI_API_KEY=your_gemini_key
-   GROQ_API_KEY=your_groq_key
-   TMDB_API_KEY=your_tmdb_key
-   DB_URI=postgresql+asyncpg://user:pass@localhost:5432/dbname
-   ```
-7. Start the Uvicorn reloading server:
-   ```bash
-   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-   ```
-
-### 3. Mobile Setup
-1. Navigate to the mobile directory:
-   ```bash
-   cd ../mobile
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Add your `google-services.json` to the mobile root folder.
-4. Configure your backend URL in `.env`:
-   ```env
-   EXPO_PUBLIC_BACKEND_URL=http://your_local_ip:8000
-   ```
-5. Start the Expo development server:
-   ```bash
-   npx expo start
-   ```
+```
+├── .agents/                    # Specialist agent scripts, prompt instructions, and rules
+├── backend/
+│   ├── app/
+│   │   ├── agents/             # LangGraph state nodes, router, and chat stream controllers
+│   │   │   ├── discovery.py    # Onboarding gap identifier
+│   │   │   ├── graph.py        # LangGraph StateGraph builder
+│   │   │   ├── nodes.py        # Graph computation nodes (Build, Commit, Hydrate)
+│   │   │   ├── parser.py       # Entity & info parser (LLM + regex heuristic fallback)
+│   │   │   └── state.py        # AgentState TypedDict definitions
+│   │   ├── api/                # FastAPI routing paths (auth, chat streams, image uploads)
+│   │   ├── data/               # Local JSON mappings & college catalogs
+│   │   ├── memory/             # Postgres memory savers & checkpointer configurations
+│   │   ├── tasks/              # Celery/APScheduler background jobs (Nightly Learning, Scrapers)
+│   │   ├── tools/              # Specialized agent actions (Syllabus downloader, TMDB movie locator)
+│   │   └── main.py             # FastAPI App root configuration
+│   ├── requirements.txt        # Backend python dependencies
+│   └── firebase-service-account.json [EXCLUDED] # Credentials
+├── mobile/
+│   ├── app/                    # Expo Router structure (Tabs: Schedule, Profile, Academics)
+│   ├── constants/              # Theme details and color tokens
+│   ├── hooks/                  # Custom hooks (useAgentChat, useGeofence, useSchedule)
+│   ├── services/               # Firebase listeners and Local Notification triggers
+│   ├── package.json            # Node.js dependencies
+│   └── app.json                # Expo config manifest
+├── README.md                   # Visual project guide
+└── .gitignore                  # Ignored credentials list
+```
 
 ---
 
-## 🧪 Running Tests
+## 🗄️ Firestore Database Schema
 
-To execute the E2E test suite:
+The system stores configuration files, user profile information, and schedule logs in Google Cloud Firestore:
+
+| Collection Path | Document ID | Description | Key Fields |
+| :--- | :--- | :--- | :--- |
+| `users/{uid}` | `uid` | Core user preferences & onboarding state | `completed_discovery`, `college`, `branch`, `semester` |
+| `timetables/{uid}` | `uid` | Extracted timetable classes by weekday | `Monday: [{"time": "09:00", "subject": "DSA"}]` |
+| `academic_events/{uid}/items` | Auto-generated | Upcoming CIEs, exams, and assignment due dates | `title`, `type (cie/see)`, `due_date`, `completed` |
+| `personal_schedule/{uid}` | `uid` | Fixed personal blocks (meditation, workouts) | `fixed_blocks: [{"title": "Meditation", "time": "06:00"}]` |
+| `schedules/{uid}/days/{date}`| `YYYY-MM-DD` | User-approved daily schedule blocks | `approved: true`, `blocks: [{"time": "09:00", "title": "Math"}]` |
+| `notifications/{uid}/pending`| `YYYY-MM-DD` | Scheduled notification reminders for the day | `reminders: [{"time": "08:50", "body": "Math in 10m"}]` |
+
+---
+
+## 🔌 REST API References
+
+### 1. Unified Agent Stream
+- **Path**: `POST /api/chat`
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "user_id": "user_123",
+    "thread_id": "thread_abc",
+    "message": "schedule my day for 2026-06-15"
+  }
+  ```
+- **Returns**: `text/event-stream` returning text tokens, intermediate tool outputs, or interrupted proposed schedules.
+
+### 2. Timetable Image Extraction
+- **Path**: `POST /api/upload/timetable`
+- **Content-Type**: `multipart/form-data`
+- **Payload**: `file` (URI binary), `user_id` (string).
+- **Response**:
+  ```json
+  {
+    "status": "success",
+    "timetable": {
+      "Monday": [{"time": "09:00", "subject": "DSA"}]
+    }
+  }
+  ```
+
+### 3. Approve Proposed Schedule
+- **Path**: `POST /api/schedule/approve`
+- **Content-Type**: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "thread_id": "thread_abc",
+    "feedback": { "approved": true, "edits": [] }
+  }
+  ```
+- **Response**: Status `success` alongside details of saved Firestore schedules.
+
+---
+
+## ⚙️ Setup & Installation
+
+> [!IMPORTANT]
+> Make sure PostgreSQL is running locally and you have created a database instance before launching the backend memory store.
+
+### 1. Backend Setup
 ```bash
+# Navigate & initialize virtualenv
 cd backend
+python -m venv .venv
 source .venv/bin/activate
-python "/Users/amankumar/.gemini/antigravity/brain/4a84db7c-714d-47d6-a444-96934d0527ee/scratch/test_phase5_e2e.py"
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create .env file and edit configuration keys
+cp .env.example .env
 ```
+Start the local server:
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 2. Mobile Setup
+```bash
+# Navigate & install node modules
+cd ../mobile
+npm install
+
+# Run Dev Server
+npx expo start
+```
+
+---
+
+## 📅 Core Scheduling Engine Rules
+
+LifeSync AI uses a deterministic rule-based generator when building user schedules to maintain calendar compliance:
+
+| Trigger Scenario | Schedule Outcome | Styling/Notes |
+| :--- | :--- | :--- |
+| **Habits (e.g. Meditation)** | Lock strictly to requested times (e.g., 6:00 AM) | Type: `health` (Non-negotiable) |
+| **CIE Exam $\le$ 7 days** | Insert **2-hour** study block daily | Type: `study` (Notes: *CIE Prep*) |
+| **CIE Exam $\le$ 3 days** | Insert **3-hour** study block daily | Type: `study` (Notes: *CIE Prep CRITICAL*) |
+| **Lab Record due tomorrow** | Insert **1.5-hour** writing block this evening | Type: `work` (Notes: *Urgent*) |
+| **VTU Holiday (e.g. Yoga Day)**| Clear all university classes & study expectations | Rest day block inserted |
+| **Saturday Night** | Query TMDB API, recommend film at **21:30** | Type: `entertainment` |
