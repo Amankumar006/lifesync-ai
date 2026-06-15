@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { COLORS, TYPE_COLORS } from "../../constants/colors";
 import { firestoreService, authService } from "../../services/firebase";
 import * as Location from "expo-location";
@@ -22,6 +23,7 @@ interface LocationCoords {
 }
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -690,6 +692,40 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        <Text style={styles.sectionTitle}>📚 Academic Setup & Tracking</Text>
+        <Text style={styles.sectionSubtitle}>
+          Configure your college timetable, parse academic documents with Gemini, and track your syllabus progress.
+        </Text>
+        
+        <View style={styles.academicToolsContainer}>
+          {/* Card 1: Timetable */}
+          <TouchableOpacity style={styles.toolCard} onPress={() => router.push("/timetable")}>
+            <View style={styles.toolCardHeader}>
+              <Text style={styles.toolCardTitle}>📅 Class Timetable</Text>
+              <Text style={styles.toolCardArrow}>→</Text>
+            </View>
+            <Text style={styles.toolCardDescription}>View, add, or edit your weekly college lectures and classroom locations.</Text>
+          </TouchableOpacity>
+
+          {/* Card 2: Document Parser */}
+          <TouchableOpacity style={styles.toolCard} onPress={() => router.push("/academics")}>
+            <View style={styles.toolCardHeader}>
+              <Text style={styles.toolCardTitle}>📸 Document Parser</Text>
+              <Text style={styles.toolCardArrow}>→</Text>
+            </View>
+            <Text style={styles.toolCardDescription}>Upload a photo of your timetable or syllabus PDF to let Gemini extract details.</Text>
+          </TouchableOpacity>
+
+          {/* Card 3: Syllabus Tracker */}
+          <TouchableOpacity style={styles.toolCard} onPress={() => router.push("/syllabus")}>
+            <View style={styles.toolCardHeader}>
+              <Text style={styles.toolCardTitle}>✍️ Syllabus Tracker</Text>
+              <Text style={styles.toolCardArrow}>→</Text>
+            </View>
+            <Text style={styles.toolCardDescription}>Monitor completed units and remaining topics for exam preparation.</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* SIGN OUT */}
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
           <Text style={styles.signOutText}>Sign Out Account</Text>
@@ -734,17 +770,17 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "rgba(0, 229, 160, 0.1)",
+    backgroundColor: COLORS.lavenderBg,
     borderWidth: 1.5,
-    borderColor: COLORS.accent,
+    borderColor: COLORS.lavender,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
   },
   avatarText: {
-    color: COLORS.accent,
+    color: COLORS.lavender,
     fontSize: 24,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   headerInfo: {
     flex: 1,
@@ -802,12 +838,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   activeBadge: {
-    backgroundColor: "rgba(0, 229, 160, 0.1)",
-    color: COLORS.accent,
+    backgroundColor: "rgba(110, 231, 168, 0.1)",
+    color: COLORS.green,
   },
   inactiveBadge: {
-    backgroundColor: "rgba(90, 96, 128, 0.1)",
-    color: COLORS.muted,
+    backgroundColor: "rgba(107, 109, 125, 0.1)",
+    color: COLORS.textMuted,
   },
   coordsDisplayRow: {
     flexDirection: "row",
@@ -966,7 +1002,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   daySelectorButtonSelected: {
-    backgroundColor: "rgba(0, 229, 160, 0.1)",
+    backgroundColor: COLORS.accentBg,
     borderColor: COLORS.accent,
   },
   daySelectorText: {
@@ -1039,5 +1075,37 @@ const styles = StyleSheet.create({
   },
   deleteRoutineButtonText: {
     fontSize: 14,
+  },
+  academicToolsContainer: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  toolCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 16,
+  },
+  toolCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  toolCardTitle: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  toolCardArrow: {
+    color: COLORS.accent,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  toolCardDescription: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
   },
 });

@@ -37,6 +37,16 @@ def _parse_heuristically(message: str) -> dict:
             }
         }
         
+    elif "weightage" in msg_lower or "note" in msg_lower:
+        return {
+            "type": "note",
+            "data": {
+                "title": "DSA CIE Weightage" if "dsa" in msg_lower else "Note",
+                "body": message,
+                "tags": ["DSA", "CIE"] if "dsa" in msg_lower else ["general"]
+            }
+        }
+        
     elif "cie" in msg_lower or "see" in msg_lower or "exam" in msg_lower:
         subj = "DSA"
         if "dsa" in msg_lower:
@@ -86,6 +96,19 @@ def _parse_heuristically(message: str) -> dict:
                 "non_negotiable": True
             }
         }
+
+    elif "buy" in msg_lower or "task" in msg_lower or "todo" in msg_lower or "reminder" in msg_lower:
+        tomorrow = (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
+        return {
+            "type": "task",
+            "data": {
+                "title": "Buy lab manual" if "lab manual" in msg_lower else "Task",
+                "type": "reminder",
+                "due_date": tomorrow,
+                "priority": "high" if "urgent" in msg_lower or "critical" in msg_lower else "medium",
+                "completed": False
+            }
+        }
         
     return {"type": "general", "data": {}}
 
@@ -93,7 +116,7 @@ async def parse_user_info(message: str, profile: dict, user_id: str = None) -> d
     """Uses Gemini to parse user messages for schedule, timetable, syllabus, or academic info.
     
     Returns a dict with:
-    - type: "timetable" | "academic_event" | "personal_block" | "syllabus_update" | "college_info" | "general"
+    - type: "timetable" | "academic_event" | "personal_block" | "syllabus_update" | "college_info" | "task" | "note" | "general"
     - data: dict (matching the schema for that type)
     """
     logger.info(f"Parsing user info from message: '{message}'")
@@ -110,7 +133,7 @@ Current Date: {current_date}
 
 Return JSON only:
 {{
-  "type": "timetable" | "academic_event" | "personal_block" | "syllabus_update" | "college_info" | "general",
+  "type": "timetable" | "academic_event" | "personal_block" | "syllabus_update" | "college_info" | "task" | "note" | "general",
   "data": {{
     // If type is "academic_event":
     "title": string (e.g., "CIE DSA"),
@@ -140,6 +163,18 @@ Return JSON only:
     // If type is "timetable":
     "Monday": [{{"time": "HH:MM", "subject": string}}],
     "Tuesday": ...
+
+    // If type is "task":
+    "title": string (e.g. "Buy lab manual"),
+    "type": "assignment" | "exam" | "project" | "reminder",
+    "due_date": "YYYY-MM-DD",
+    "priority": "critical" | "high" | "medium" | "low",
+    "subject": string (optional, e.g. "Physics")
+
+    // If type is "note":
+    "title": string (optional, e.g. "DSA CIE Weightage"),
+    "body": string (the note content),
+    "tags": [string] (optional, e.g. ["DSA", "CIE"])
   }}
 }}
 Message: {message}"""

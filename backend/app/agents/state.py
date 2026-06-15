@@ -21,6 +21,8 @@ class AgentState(MessagesState):
     calendar_status: str
     asked_discovery_this_session: Optional[bool]
     academic_calendar: Optional[Dict[str, Any]]
+    pending_tasks: List[Dict[str, Any]]
+    recent_notes: List[Dict[str, Any]]
 
 
 

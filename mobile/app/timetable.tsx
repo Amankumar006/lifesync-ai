@@ -4,15 +4,15 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  FlatList,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   Alert
 } from "react-native";
-import { COLORS } from "../../constants/colors";
-import { firestoreService, authService } from "../../services/firebase";
+import { useRouter } from "expo-router";
+import { COLORS } from "../constants/colors";
+import { firestoreService, authService } from "../services/firebase";
 
 type ClassBlock = {
   time: string;
@@ -34,7 +34,9 @@ const DAYS = [
 ];
 
 export default function TimetableScreen() {
+  const router = useRouter();
   const [uid, setUid] = useState(authService.currentUser?.uid || "mock_user_123");
+
   const [selectedDay, setSelectedDay] = useState("Monday");
   const [timetable, setTimetable] = useState<Timetable>({
     Monday: [],

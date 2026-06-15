@@ -67,14 +67,19 @@ export default function ChatScreen() {
   const renderProposedSchedule = (schedule: any[]) => {
     return (
       <View style={styles.scheduleCard}>
-        <Text style={styles.scheduleHeader}>📅 Proposed Daily Schedule</Text>
+        <View style={styles.scheduleHeaderRow}>
+          <View style={styles.headerDot} />
+          <Text style={styles.scheduleHeader}>Proposed Schedule · {schedule.length} blocks</Text>
+        </View>
         {schedule.map((block: any, idx: number) => {
           const color = TYPE_COLORS[block.type as keyof typeof TYPE_COLORS] ?? COLORS.muted;
+          const isCritical = block.type === "study" && block.title.toLowerCase().includes("critical");
           return (
-            <View key={idx} style={[styles.blockRow, { borderLeftColor: color }]}>
+            <View key={idx} style={styles.blockRow}>
+              <View style={[styles.blockBar, { backgroundColor: color }]} />
               <Text style={styles.blockTime}>{block.time}</Text>
               <View style={styles.blockContent}>
-                <Text style={styles.blockTitle}>{block.title}</Text>
+                <Text style={[styles.blockTitle, isCritical && { color: COLORS.red }]}>{block.title}</Text>
                 {block.notes ? <Text style={styles.blockNotes}>{block.notes}</Text> : null}
               </View>
               <Text style={styles.blockDuration}>{block.duration_min}m</Text>
@@ -89,7 +94,7 @@ export default function ChatScreen() {
             disabled={isApproving}
           >
             {isApproving ? (
-              <ActivityIndicator size="small" color="#0c0e14" />
+              <ActivityIndicator size="small" color="#1a1611" />
             ) : (
               <Text style={styles.actionButtonText}>Looks good ✓</Text>
             )}
@@ -171,17 +176,19 @@ export default function ChatScreen() {
         ) : null}
 
         <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Type a message to your co-pilot..."
-            placeholderTextColor={COLORS.muted}
-            value={input}
-            onChangeText={setInput}
-            onSubmitEditing={handleSubmit}
-          />
-          <TouchableOpacity style={styles.sendButton} onPress={handleSubmit}>
-            <Text style={styles.sendButtonText}>Send</Text>
-          </TouchableOpacity>
+          <View style={styles.inputBar}>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Ask anything..."
+              placeholderTextColor={COLORS.textDim}
+              value={input}
+              onChangeText={setInput}
+              onSubmitEditing={handleSubmit}
+            />
+            <TouchableOpacity style={styles.sendButton} onPress={handleSubmit}>
+              <Text style={styles.sendButtonArrow}>↑</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
 
@@ -285,13 +292,11 @@ const styles = StyleSheet.create({
   },
   bubble: {
     maxWidth: "85%",
-    borderRadius: 20,
-    padding: 14,
+    borderRadius: 16,
+    padding: 12,
   },
   userBubble: {
-    backgroundColor: "rgba(0, 229, 160, 0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(0, 229, 160, 0.2)",
+    backgroundColor: COLORS.accent,
     borderBottomRightRadius: 4,
   },
   assistantBubble: {
@@ -301,47 +306,53 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 4,
   },
   messageText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
   },
   userText: {
-    color: COLORS.accent,
+    color: "#1a1611",
+    fontWeight: "500",
   },
   assistantText: {
     color: COLORS.text,
   },
   inputContainer: {
-    flexDirection: "row",
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: COLORS.bg,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
+  },
+  inputBar: {
+    flexDirection: "row",
     backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 24,
+    padding: 4,
+    paddingLeft: 14,
     alignItems: "center",
   },
   textInput: {
     flex: 1,
-    backgroundColor: COLORS.bg,
     color: COLORS.text,
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    marginRight: 12,
+    fontSize: 13,
+    paddingVertical: 6,
   },
   sendButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: COLORS.accent,
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
     justifyContent: "center",
     alignItems: "center",
   },
-  sendButtonText: {
-    color: "#0c0e14",
+  sendButtonArrow: {
+    color: "#1a1611",
     fontWeight: "700",
-    fontSize: 13,
+    fontSize: 16,
+    lineHeight: 18,
+    textAlign: "center",
   },
   loadingIndicator: {
     flexDirection: "row",
@@ -359,29 +370,43 @@ const styles = StyleSheet.create({
   // Proposed Schedule card styling
   scheduleCard: {
     width: "100%",
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 16,
+    padding: 12,
     marginTop: 4,
   },
+  scheduleHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+    gap: 6,
+  },
+  headerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.accent,
+  },
   scheduleHeader: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: "700",
     color: COLORS.text,
-    marginBottom: 12,
     fontFamily: "monospace",
   },
   blockRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderLeftWidth: 3,
-    paddingLeft: 10,
-    paddingVertical: 8,
-    marginBottom: 8,
-    backgroundColor: COLORS.surface,
-    borderRadius: 4,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  blockBar: {
+    width: 3,
+    height: 14,
+    borderRadius: 1.5,
+    marginRight: 8,
   },
   blockTime: {
     fontSize: 11,

@@ -33,6 +33,8 @@ async def chat_endpoint(request: Request, body: dict, background_tasks: Backgrou
             "user_id": user_id,
             "user_profile": {},
             "task_queue": [],
+            "pending_tasks": [],
+            "recent_notes": [],
             "needs_clarification": False,
             "proposed_schedule": None,
             "approved_schedule": None,
@@ -121,3 +123,37 @@ async def approve_schedule(request: Request, body: dict):
     except Exception as e:
         logger.error(f"Error in approve_schedule: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
+
+# Note summarizer route
+from pydantic import BaseModel
+
+class SummarizeNoteRequest(BaseModel):
+    note_content: str
+    user_id: str
+
+@router.post("/notes/summarize")
+async def summarize_note_endpoint(req: SummarizeNoteRequest):
+    from app.agents.nodes import summarize_note_content
+    logger.info(f"Summarizing note for user {req.user_id} via API")
+    try:
+        res = await summarize_note_content(req.note_content)
+        try:
+            from app.api.upload import link_note_to_syllabus
+            linked = await link_note_to_syllabus(
+                user_id=req.user_id,
+                note_subject=res.get("subject", "General"),
+                note_tags=res.get("tags", []),
+                note_content=req.note_content
+            )
+            if linked:
+                res["linked_syllabus"] = linked
+        except Exception as ex:
+            logger.error(f"Syllabus linker failed in chat summarize: {ex}")
+        return res
+    except Exception as e:
+        logger.error(f"Error in summarize_note_endpoint: {e}", exc_info=True)
+        return {
+            "summary": req.note_content[:60] + "..." if len(req.note_content) > 60 else req.note_content,
+            "subject": "General",
+            "tags": ["general"]
+        }

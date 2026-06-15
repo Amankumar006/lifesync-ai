@@ -12,11 +12,12 @@ import {
   Platform,
   KeyboardAvoidingView
 } from "react-native";
+import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
-import { COLORS } from "../../constants/colors";
-import { firestoreService, authService } from "../../services/firebase";
+import { COLORS } from "../constants/colors";
+import { firestoreService, authService } from "../services/firebase";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -30,7 +31,9 @@ type AcademicEvent = {
 };
 
 export default function AcademicsScreen() {
+  const router = useRouter();
   const [uid, setUid] = useState(authService.currentUser?.uid || "mock_user_123");
+
   const [events, setEvents] = useState<AcademicEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
 

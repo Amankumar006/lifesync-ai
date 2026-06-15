@@ -21,6 +21,36 @@ from firebase_admin import firestore_async
 
 logger = logging.getLogger("app.agents.nodes")
 
+async def summarize_note_content(body: str) -> dict:
+    """Uses LLM to summarize note content and extract subject + tags."""
+    logger.info(f"Summarizing note content: {body[:60]}...")
+    prompt = f"""Extract a 1-sentence summary, relevant subject, and 2-4 tags from this note.
+Note content: {body}
+
+Return JSON only:
+{{
+  "summary": "1-sentence summary...",
+  "subject": "subject name or general category",
+  "tags": ["tag1", "tag2", ...]
+}}"""
+    try:
+        res = await llm.ainvoke(prompt)
+        text = res.content.strip()
+        if text.startswith("```"):
+            match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+            if match:
+                text = match.group(1).strip()
+        data = json.loads(text)
+        logger.info(f"Note summarized successfully: {data}")
+        return data
+    except Exception as e:
+        logger.error(f"Error in summarize_note_content LLM: {e}")
+        return {
+            "summary": body[:60] + "..." if len(body) > 60 else body,
+            "subject": "General",
+            "tags": ["general"]
+        }
+
 def parse_date_from_message(message: str) -> str:
     msg = message.lower()
     today = datetime.date.today()
@@ -105,7 +135,7 @@ Do not output any markdown code blocks, just raw JSON. If date cannot be parsed,
             intent = "entertainment_rec"
         elif re.search(r"\b(edit|change|move|remove|add)\b", last_msg_lower):
             intent = "schedule_edit"
-        elif not is_query_for_info and (any(kw in last_msg_lower for kw in ["cie", "exam", "assignment", "viva", "meditate", "workout", "unit", "timetable", "time table", "schedule info", "study", "rvce", "bmsce", "msrit", "vtu", "semester", "sem", "scheme"]) or last_msg_lower in ["no", "none", "nothing", "not yet", "no i don't", "no, thanks", "no thanks", "no"]):
+        elif not is_query_for_info and (any(kw in last_msg_lower for kw in ["cie", "exam", "assignment", "viva", "meditate", "workout", "unit", "timetable", "time table", "schedule info", "study", "rvce", "bmsce", "msrit", "bti", "vtu", "semester", "sem", "scheme", "buy", "task", "todo", "reminder", "weightage", "note", "lab manual"]) or last_msg_lower in ["no", "none", "nothing", "not yet", "no i don't", "no, thanks", "no thanks", "no"]):
             intent = "info_provided"
         elif "schedule" in last_msg_lower or "today" in last_msg_lower:
             intent = "schedule_build"
@@ -133,7 +163,7 @@ Do not output any markdown code blocks, just raw JSON. If date cannot be parsed,
                 intent = "entertainment_rec"
             elif re.search(r"\b(edit|change|move|remove|add)\b", last_msg_lower):
                 intent = "schedule_edit"
-            elif not is_query_for_info and (any(kw in last_msg_lower for kw in ["cie", "exam", "assignment", "viva", "meditate", "workout", "unit", "timetable", "time table", "schedule info", "study", "rvce", "bmsce", "msrit", "vtu", "semester", "sem", "scheme"]) or last_msg_lower in ["no", "none", "nothing", "not yet", "no i don't", "no, thanks", "no thanks", "no"]):
+            elif not is_query_for_info and (any(kw in last_msg_lower for kw in ["cie", "exam", "assignment", "viva", "meditate", "workout", "unit", "timetable", "time table", "schedule info", "study", "rvce", "bmsce", "msrit", "bti", "vtu", "semester", "sem", "scheme", "buy", "task", "todo", "reminder", "weightage", "note", "lab manual"]) or last_msg_lower in ["no", "none", "nothing", "not yet", "no i don't", "no, thanks", "no thanks", "no"]):
                 intent = "info_provided"
             elif "schedule" in last_msg_lower or "today" in last_msg_lower:
                 intent = "schedule_build"
@@ -307,7 +337,7 @@ async def hydrate_context(state: AgentState, store: BaseStore) -> Dict[str, Any]
         except Exception as parse_err:
             logger.warning(f"Failed parsing inline user message: {parse_err}")
 
-    # 2. Fetch timetable, academic events, personal schedule, and calendar in parallel
+    # 2. Fetch timetable, academic events, personal schedule, calendar, and notes in parallel
     db = firestore_async.client()
     
     timetable_task = fetch_timetable_func(user_id=user_id, date=date)
@@ -315,13 +345,15 @@ async def hydrate_context(state: AgentState, store: BaseStore) -> Dict[str, Any]
     events_task = db.collection("academic_events").document(user_id).collection("items").get()
     personal_task = db.collection("personal_schedule").document(user_id).get()
     calendar_task = db.collection("academic_calendar").document(user_id).get()
+    notes_task = db.collection("notes").document(user_id).collection("items").get()
     
-    timetable_res, tasks_snap, events_snap, personal_doc, calendar_doc = await asyncio.gather(
+    timetable_res, tasks_snap, events_snap, personal_doc, calendar_doc, notes_snap = await asyncio.gather(
         timetable_task,
         tasks_task,
         events_task,
         personal_task,
-        calendar_task
+        calendar_task,
+        notes_task
     )
     
     # Process tasks
@@ -392,11 +424,34 @@ async def hydrate_context(state: AgentState, store: BaseStore) -> Dict[str, Any]
     if calendar_status is None:
         calendar_status = user_profile.get("calendar_status") or "unknown"
         
+    # Process recent notes (last 7 days)
+    recent_notes = []
+    dt_today = datetime.date.fromisoformat(date)
+    dt_7_days_ago = dt_today - datetime.timedelta(days=7)
+    for doc in notes_snap:
+        ndata = doc.to_dict()
+        ndata["id"] = doc.id
+        created_at_str = ndata.get("created_at")
+        is_recent = True
+        if created_at_str:
+            try:
+                dt_created = datetime.datetime.fromisoformat(created_at_str.replace("Z", "+00:00")).date()
+                if dt_created < dt_7_days_ago:
+                    is_recent = False
+            except Exception:
+                pass
+        if is_recent:
+            if "type" not in ndata:
+                ndata["type"] = "text"
+            recent_notes.append(ndata)
+
     # Bypassed guided discovery loop in hydrate_context (handled in check_clarification_node)
     return {
         "user_profile": user_profile,
         "timetable_today": timetable_today,
         "task_queue": tasks,
+        "pending_tasks": tasks,
+        "recent_notes": recent_notes,
         "academic_events": academic_events,
         "personal_fixed_blocks": personal_fixed_blocks,
         "syllabus_status": syllabus_status,
@@ -425,7 +480,9 @@ def generate_rule_based_schedule(
     personal_fixed_blocks: list,
     academic_events: list,
     academic_calendar: dict,
-    user_profile: dict
+    user_profile: dict,
+    pending_tasks: list = None,
+    recent_notes: list = None
 ) -> list:
     """Programmatically generates a schedule according to Phase 5 system rules."""
     logger.info(f"Generating rule-based fallback schedule for user: {user_id}, date: {date} ({weekday_name})")
@@ -518,6 +575,32 @@ def generate_rule_based_schedule(
             "duration_min": 120,
             "notes": f"⭐ {movie_rating}/10 - {movie_overview}"
         })
+    # 6. Add pending tasks due on this date
+    if pending_tasks:
+        for t in pending_tasks:
+            due_date = t.get("due_date")
+            if due_date == date and not t.get("completed"):
+                blocks.append({
+                    "time": "14:00",
+                    "title": f"Task: {t.get('title')}",
+                    "type": "work",
+                    "duration_min": 60,
+                    "notes": f"Complete pending task: {t.get('title')}. Priority: {t.get('priority')}."
+                })
+                
+    # 7. Add study blocks based on note weightage / details
+    if recent_notes:
+        for n in recent_notes:
+            body_lower = n.get("body", "").lower()
+            tags_lower = [tag.lower() for tag in n.get("tags", [])]
+            if "dsa" in body_lower or "dsa" in tags_lower:
+                blocks.append({
+                    "time": "18:00",
+                    "title": "DSA Study Block",
+                    "type": "study",
+                    "duration_min": 90,
+                    "notes": f"Study block for DSA. Note context: {n.get('ai_summary')}"
+                })
         
     # Sort blocks by start time to keep it ordered
     blocks.sort(key=lambda x: x.get("time", "00:00"))
@@ -554,6 +637,8 @@ async def build_schedule(state: AgentState) -> Dict[str, Any]:
     personal_fixed_blocks = state.get("personal_fixed_blocks") or []
     syllabus_status = state.get("syllabus_status") or {}
     academic_calendar = state.get("academic_calendar") or {}
+    pending_tasks = state.get("pending_tasks") or []
+    recent_notes = state.get("recent_notes") or []
     
     # 1. Parse date and determine weekday / weekend mode
     try:
@@ -735,13 +820,18 @@ async def build_schedule(state: AgentState) -> Dict[str, Any]:
             logger.error(f"Error fetching Saturday movie recommendation: {e}")
             movie_info_str = "\n🎥 SATURDAY MOVIE NIGHT MANDATE:\nYou MUST schedule a movie block at exactly 21:30 titled 'Movie Night' (type: ent, duration: 120 min) with notes: 'Popcorn time! Curated by your AI.'"
  
-    tasks = state.get("task_queue") or []
-    sorted_tasks = sorted(tasks, key=lambda x: x.get("due_date", "9999-12-31"))
-    task_queue_str = ""
-    for t in sorted_tasks:
-        task_queue_str += f"- {t.get('title')} (Priority: {t.get('priority')}, Due: {t.get('due_date')})\n"
-    if not task_queue_str:
-        task_queue_str = "No pending tasks."
+    pending_tasks_str = ""
+    for t in sorted(pending_tasks, key=lambda x: x.get("due_date", "9999-12-31")):
+        pending_tasks_str += f"- {t.get('title')} (Type: {t.get('type')}, Priority: {t.get('priority')}, Due: {t.get('due_date')})\n"
+    if not pending_tasks_str:
+        pending_tasks_str = "No pending tasks."
+        
+    recent_notes_str = ""
+    for n in recent_notes:
+        note_type = n.get('type', 'text')
+        recent_notes_str += f"- [{note_type}] {n.get('title')} (Subject: {n.get('subject')}, Tags: {', '.join(n.get('tags', []))}). AI Summary: {n.get('ai_summary')}\n"
+    if not recent_notes_str:
+        recent_notes_str = "No recent notes."
         
     feedback = state.get("human_feedback") or {}
     if feedback and not feedback.get("approved"):
@@ -768,30 +858,40 @@ FIXED CLASSES — DO NOT MOVE OR REMOVE
 ═══════════════════════════════════════════
 {timetable_classes}
 {movie_info_str}
-
+ 
 ═══════════════════════════════════════════
 PERSONAL FIXED BLOCKS — NON-NEGOTIABLE
 (treat exactly like college classes, never move)
 ═══════════════════════════════════════════
 {non_negotiable_str}
-
+ 
 ═══════════════════════════════════════════
 PERSONAL FLEXIBLE BLOCKS — schedule if space allows
 ═══════════════════════════════════════════
 {flexible_str}
-
+ 
+═══════════════════════════════════════════
+PENDING TASKS DUE SOON
+═══════════════════════════════════════════
+{pending_tasks_str}
+ 
+═══════════════════════════════════════════
+RECENT NOTES CONTEXT
+═══════════════════════════════════════════
+{recent_notes_str}
+ 
 ═══════════════════════════════════════════
 ACADEMIC EVENTS DUE SOON
 ═══════════════════════════════════════════
 {academic_events_str}
-
+ 
 ═══════════════════════════════════════════
 ACADEMIC CALENDAR
 ═══════════════════════════════════════════
 CIE dates: {json.dumps(cie_dates)}
 SEE starts: {see_start}
 Next holiday: {next_holiday}
-
+ 
 ═══════════════════════════════════════════
 SYLLABUS RISK ASSESSMENT
 ═══════════════════════════════════════════
@@ -813,11 +913,6 @@ BEHAVIORAL PATTERNS (learned)
 ═══════════════════════════════════════════
 {patterns_str}
 Example: gym_monday: 0.8 means they skip gym 80% of Mondays — don't schedule gym today if it's Monday.
- 
-═══════════════════════════════════════════
-TASK QUEUE (sorted by deadline)
-═══════════════════════════════════════════
-{task_queue_str}
  
 ═══════════════════════════════════════════
 USER FEEDBACK ON PREVIOUS PROPOSAL
@@ -871,7 +966,9 @@ Return ONLY a JSON array. No markdown, no explanation:
             personal_fixed_blocks=personal_fixed_blocks,
             academic_events=academic_events,
             academic_calendar=academic_calendar,
-            user_profile=user_profile
+            user_profile=user_profile,
+            pending_tasks=pending_tasks,
+            recent_notes=recent_notes
         )
     else:
         # Call the LLM fallback chain
@@ -896,7 +993,9 @@ Return ONLY a JSON array. No markdown, no explanation:
                 personal_fixed_blocks=personal_fixed_blocks,
                 academic_events=academic_events,
                 academic_calendar=academic_calendar,
-                user_profile=user_profile
+                user_profile=user_profile,
+                pending_tasks=pending_tasks,
+                recent_notes=recent_notes
             )
         else:
             # Normalise response_content: gemini-flash-latest returns a list of content parts
@@ -926,7 +1025,9 @@ Return ONLY a JSON array. No markdown, no explanation:
                     personal_fixed_blocks=personal_fixed_blocks,
                     academic_events=academic_events,
                     academic_calendar=academic_calendar,
-                    user_profile=user_profile
+                    user_profile=user_profile,
+                    pending_tasks=pending_tasks,
+                    recent_notes=recent_notes
                 )
             
     return {
@@ -1235,7 +1336,46 @@ async def save_user_info_node(state: AgentState, store: BaseStore, config: Runna
     
     thing = "information"
     
-    if info_type == "academic_event":
+    if info_type == "task":
+        # Save to tasks/{uid}/items
+        task_ref = db.collection("tasks").document(user_id).collection("items")
+        await task_ref.add({
+            "title": info_data.get("title", "Task"),
+            "type": info_data.get("type", "reminder"),
+            "due_date": info_data.get("due_date", datetime.date.today().isoformat()),
+            "priority": info_data.get("priority", "medium"),
+            "completed": False,
+            "subject": info_data.get("subject"),
+            "created_at": datetime.datetime.utcnow().isoformat()
+        })
+        
+        completed = user_profile.get("completed_discovery", [])
+        if "academic_events" not in completed:
+            completed.append("academic_events")
+            user_profile["completed_discovery"] = completed
+            await save_user_profile(store, user_id, user_profile)
+            await db.collection("users").document(user_id).set({"completed_discovery": completed}, merge=True)
+            
+        thing = info_data.get("title", "task")
+
+    elif info_type == "note":
+        # Save to notes/{uid}/items
+        note_body = info_data.get("body") or last_message
+        summary_data = await summarize_note_content(note_body)
+        
+        note_ref = db.collection("notes").document(user_id).collection("items")
+        await note_ref.add({
+            "title": info_data.get("title") or summary_data.get("subject") or "Note",
+            "body": note_body,
+            "ai_summary": summary_data.get("summary", ""),
+            "subject": summary_data.get("subject", "General"),
+            "tags": info_data.get("tags") or summary_data.get("tags") or ["general"],
+            "created_at": datetime.datetime.utcnow().isoformat()
+        })
+        
+        thing = info_data.get("title", "note")
+
+    elif info_type == "academic_event":
         # Save to academic_events/{uid}/items
         event_ref = db.collection("academic_events").document(user_id).collection("items")
         await event_ref.add(info_data)

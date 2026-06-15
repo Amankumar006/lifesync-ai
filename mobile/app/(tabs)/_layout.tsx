@@ -1,9 +1,17 @@
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import React from "react";
-import { StyleSheet, Platform } from "react-native";
+import { StyleSheet, Platform, TouchableOpacity, Text } from "react-native";
 import { COLORS } from "../../constants/colors";
+import {
+  ChatIcon,
+  PlanIcon,
+  TasksIcon,
+  NotesIcon,
+  ProfileIcon
+} from "../../components/icons";
 
 export default function TabLayout() {
+  const router = useRouter();
   return (
     <Tabs
       screenOptions={{
@@ -28,10 +36,11 @@ export default function TabLayout() {
           paddingTop: 8,
         },
         tabBarActiveTintColor: COLORS.accent,
-        tabBarInactiveTintColor: COLORS.muted,
+        tabBarInactiveTintColor: COLORS.textDim,
         tabBarLabelStyle: {
           fontSize: 10,
           fontFamily: "monospace",
+          fontWeight: "600",
         },
       }}
     >
@@ -41,6 +50,7 @@ export default function TabLayout() {
           title: "AI Co-pilot",
           headerTitle: "🧠 Agent Chat",
           tabBarLabel: "Chat",
+          tabBarIcon: ({ focused }) => <ChatIcon size={24} active={focused} />,
         }}
       />
       <Tabs.Screen
@@ -48,31 +58,26 @@ export default function TabLayout() {
         options={{
           title: "Schedule",
           headerTitle: "📅 Daily Schedule",
-          tabBarLabel: "Schedule",
+          tabBarLabel: "Plan",
+          tabBarIcon: ({ size, focused }) => <PlanIcon size={24} active={focused} />,
         }}
       />
       <Tabs.Screen
-        name="timetable"
+        name="tasks"
         options={{
-          title: "Timetable",
-          headerTitle: "🎓 College Timetable",
-          tabBarLabel: "Timetable",
+          title: "Tasks",
+          headerTitle: "📋 Tasks Tracker",
+          tabBarLabel: "Tasks",
+          tabBarIcon: ({ focused }) => <TasksIcon size={24} active={focused} />,
         }}
       />
       <Tabs.Screen
-        name="academics"
+        name="notes"
         options={{
-          title: "Academics",
-          headerTitle: "📚 Academics & Docs",
-          tabBarLabel: "Academics",
-        }}
-      />
-      <Tabs.Screen
-        name="syllabus"
-        options={{
-          title: "Syllabus",
-          headerTitle: "📝 Syllabus Tracker",
-          tabBarLabel: "Syllabus",
+          title: "Notes",
+          headerTitle: "📝 Notes Keeper",
+          tabBarLabel: "Notes",
+          tabBarIcon: ({ focused }) => <NotesIcon size={24} active={focused} />,
         }}
       />
       <Tabs.Screen
@@ -80,9 +85,11 @@ export default function TabLayout() {
         options={{
           title: "Profile",
           headerTitle: "👤 User Profile",
-          tabBarLabel: "Profile",
+          tabBarLabel: "You",
+          tabBarIcon: ({ focused }) => <ProfileIcon size={24} active={focused} />,
         }}
       />
+      
     </Tabs>
   );
 }

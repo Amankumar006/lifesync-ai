@@ -162,6 +162,57 @@ export default function RootLayout() {
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="timetable"
+          options={{
+            headerShown: true,
+            headerTitle: "Class Timetable",
+            headerStyle: {
+              backgroundColor: COLORS.surface,
+            },
+            headerTintColor: COLORS.accent,
+            headerTitleStyle: {
+              fontWeight: "700",
+              color: COLORS.text,
+              fontSize: 16,
+            },
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="academics"
+          options={{
+            headerShown: true,
+            headerTitle: "Document Parser",
+            headerStyle: {
+              backgroundColor: COLORS.surface,
+            },
+            headerTintColor: COLORS.accent,
+            headerTitleStyle: {
+              fontWeight: "700",
+              color: COLORS.text,
+              fontSize: 16,
+            },
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="syllabus"
+          options={{
+            headerShown: true,
+            headerTitle: "Syllabus Tracker",
+            headerStyle: {
+              backgroundColor: COLORS.surface,
+            },
+            headerTintColor: COLORS.accent,
+            headerTitleStyle: {
+              fontWeight: "700",
+              color: COLORS.text,
+              fontSize: 16,
+            },
+            headerShadowVisible: false,
+          }}
+        />
       </Stack>
     </>
   );

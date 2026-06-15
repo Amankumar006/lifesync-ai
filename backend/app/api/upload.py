@@ -1,4 +1,5 @@
 import base64
+import datetime
 import logging
 import json
 import re
@@ -39,6 +40,105 @@ async def call_gemini_multimodal_rest(prompt: str, mime_type: str, base64_data: 
             return data["candidates"][0]["content"]["parts"][0]["text"]
         except (KeyError, IndexError):
             raise Exception(f"Unexpected response structure from Gemini API: {data}")
+
+async def call_gemini_text(prompt: str) -> str:
+    """Helper to call Gemini API directly with text prompt via REST."""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt}
+                ]
+            }
+        ]
+    }
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(url, json=payload, headers={"Content-Type": "application/json"})
+        if resp.status_code != 200:
+            raise Exception(f"Gemini API returned error {resp.status_code}: {resp.text}")
+        data = resp.json()
+        try:
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+        except (KeyError, IndexError):
+            raise Exception(f"Unexpected response structure from Gemini API: {data}")
+
+async def link_note_to_syllabus(user_id: str, note_subject: str, note_tags: list, note_content: str) -> dict | None:
+    """Helper to map a note content/subject/tags to the student's syllabus in Firestore."""
+    try:
+        db = firestore_async.client()
+        subjects_ref = db.collection("syllabus").document(user_id).collection("subjects")
+        subjects_snap = await subjects_ref.get()
+        
+        if not subjects_snap:
+            return None
+            
+        syllabus_list = []
+        for doc in subjects_snap:
+            sdata = doc.to_dict()
+            sname = doc.id
+            units = sdata.get("units", [])
+            units_str = "\n".join([f"  - Unit {u.get('number', i+1)}: {u.get('title', '')}" for i, u in enumerate(units)])
+            syllabus_list.append(f"Subject: {sname}\nUnits:\n{units_str}")
+            
+        if not syllabus_list:
+            return None
+            
+        syllabus_str = "\n\n".join(syllabus_list)
+        
+        prompt = f"""Match this student note's content to the user's syllabus.
+
+Note Subject Guess: {note_subject}
+Note Tags: {", ".join(note_tags) if note_tags else "None"}
+Note Content Preview: {note_content[:1500]}
+
+Available Syllabus:
+{syllabus_str}
+
+If the note is related to one of the subjects, choose the best matching subject, unit number (usually 1-indexed), and unit title from the syllabus.
+Return JSON only:
+{{
+  "subject": "subject name matching the syllabus subject",
+  "unit_number": number,
+  "unit_title": "unit title matching the syllabus unit title"
+}}
+If no match is found or there is no relevant unit, return null. Do not include markdown code blocks, just raw JSON or null."""
+
+        text = await call_gemini_text(prompt)
+        text = text.strip()
+        if text.startswith("```"):
+            match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+            if match:
+                text = match.group(1).strip()
+                
+        if text.lower() == "null" or not text:
+            return None
+            
+        match_data = json.loads(text)
+        if match_data and isinstance(match_data, dict):
+            subj_name = match_data.get("subject")
+            unit_num = match_data.get("unit_number")
+            if subj_name and unit_num:
+                # Update syllabus unit status if it was not_started
+                doc_ref = subjects_ref.document(subj_name)
+                doc = await doc_ref.get()
+                if doc.exists:
+                    subj_data = doc.to_dict() or {}
+                    units = subj_data.get("units", [])
+                    modified = False
+                    for u in units:
+                        if str(u.get("number")) == str(unit_num):
+                            if u.get("status") == "not_started" or not u.get("status"):
+                                u["status"] = "in_progress"
+                                modified = True
+                            break
+                    if modified:
+                        await doc_ref.set(subj_data, merge=True)
+                return match_data
+        return None
+    except Exception as e:
+        logger.error(f"Error linking note to syllabus: {e}", exc_info=True)
+        return None
 
 @router.post("/upload/timetable")
 async def upload_timetable(user_id: str = Form(...), file: UploadFile = File(...)):
@@ -138,6 +238,120 @@ Do not output any markdown code blocks, just raw JSON."""
     except Exception as e:
         logger.error(f"Error parsing syllabus PDF: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to parse syllabus PDF: {str(e)}")
+
+@router.post("/upload/photo-note")
+async def upload_photo_note(user_id: str = Form(...), file: UploadFile = File(...)):
+    if not user_id or not file:
+        raise HTTPException(status_code=400, detail="Missing user_id or file")
+
+    try:
+        content = await file.read()
+        base64_image = base64.b64encode(content).decode("utf-8")
+        mime_type = file.content_type or "image/png"
+
+        prompt = """Extract ALL text, formulas, diagrams, and key points from this image (whiteboard, slide, textbook page, or handwritten notes).
+
+Return JSON only:
+{
+  "extracted_text": "full text content visible in the image",
+  "type": "whiteboard|slide|textbook|diagram|handwritten|other",
+  "key_points": ["point 1", "point 2"],
+  "formulas": ["formula 1"] or [],
+  "summary": "1-2 sentence summary of the content",
+  "subject": "best-guess subject like DSA, DBMS, Physics, Mathematics, etc or General",
+  "tags": ["tag1", "tag2"]
+}
+Do not output any markdown code blocks, just raw JSON."""
+
+        text = await call_gemini_multimodal_rest(prompt, mime_type, base64_image)
+        text = text.strip()
+        if text.startswith("```"):
+            match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+            if match:
+                text = match.group(1).strip()
+
+        extracted_data = json.loads(text)
+        try:
+            linked = await link_note_to_syllabus(
+                user_id=user_id,
+                note_subject=extracted_data.get("subject", "General"),
+                note_tags=extracted_data.get("tags", []),
+                note_content=extracted_data.get("extracted_text", "")
+            )
+            if linked:
+                extracted_data["linked_syllabus"] = linked
+        except Exception as ex:
+            logger.error(f"Syllabus linker failed in photo-note: {ex}")
+        return {"status": "success", "data": extracted_data}
+    except Exception as e:
+        logger.error(f"Error parsing photo note: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to parse photo note: {str(e)}")
+
+@router.post("/upload/audio-note")
+async def upload_audio_note(user_id: str = Form(...), file: UploadFile = File(...)):
+    if not user_id or not file:
+        raise HTTPException(status_code=400, detail="Missing user_id or file")
+
+    try:
+        content = await file.read()
+
+        if len(content) > 8 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Recording too large — try a shorter clip (max 3 minutes)")
+
+        base64_audio = base64.b64encode(content).decode("utf-8")
+        mime_type = file.content_type or "audio/mp4"
+
+        prompt = """Transcribe this audio recording and extract key information.
+
+Return JSON only:
+{
+  "transcript": "full transcript of the audio",
+  "summary": "1-2 sentence summary of key points",
+  "subject": "best-guess subject like DSA, DBMS, Physics, etc or General",
+  "tags": ["tag1", "tag2"],
+  "action_items": ["any tasks or deadlines mentioned, e.g. 'Submit assignment 4 by Monday'"] or []
+}
+Do not output any markdown code blocks, just raw JSON."""
+
+        text = await call_gemini_multimodal_rest(prompt, mime_type, base64_audio)
+        text = text.strip()
+        if text.startswith("```"):
+            match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+            if match:
+                text = match.group(1).strip()
+
+        extracted_data = json.loads(text)
+        try:
+            linked = await link_note_to_syllabus(
+                user_id=user_id,
+                note_subject=extracted_data.get("subject", "General"),
+                note_tags=extracted_data.get("tags", []),
+                note_content=extracted_data.get("transcript", "")
+            )
+            if linked:
+                extracted_data["linked_syllabus"] = linked
+        except Exception as ex:
+            logger.error(f"Syllabus linker failed in audio-note: {ex}")
+        action_items = extracted_data.get("action_items", [])
+
+        if action_items:
+            db = firestore_async.client()
+            for item in action_items:
+                await db.collection("tasks").document(user_id).collection("items").add({
+                    "title": item,
+                    "type": "reminder",
+                    "priority": "medium",
+                    "source": "auto_from_lecture",
+                    "completed": False,
+                    "created_at": datetime.datetime.utcnow().isoformat()
+                })
+
+        return {"status": "success", "data": extracted_data, "tasks_created": len(action_items)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error parsing audio note: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to parse audio note: {str(e)}")
 
 @router.post("/upload/confirm/timetable")
 async def confirm_timetable(request: Request, body: dict):

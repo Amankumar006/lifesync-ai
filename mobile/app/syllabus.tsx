@@ -11,8 +11,9 @@ import {
   Platform,
   KeyboardAvoidingView
 } from "react-native";
-import { COLORS } from "../../constants/colors";
-import { firestoreService, authService } from "../../services/firebase";
+import { useRouter } from "expo-router";
+import { COLORS } from "../constants/colors";
+import { firestoreService, authService } from "../services/firebase";
 
 type Unit = {
   number: number;
@@ -32,7 +33,9 @@ type SubjectSyllabus = {
 };
 
 export default function SyllabusScreen() {
+  const router = useRouter();
   const [uid, setUid] = useState(authService.currentUser?.uid || "mock_user_123");
+
   const [subjects, setSubjects] = useState<SubjectSyllabus[]>([]);
   const [loading, setLoading] = useState(true);
 

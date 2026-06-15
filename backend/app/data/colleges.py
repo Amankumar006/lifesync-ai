@@ -17,6 +17,11 @@ COLLEGE_DATABASE = {
         "website": "https://msrit.edu",
         "affiliated_to": "vtu"
     },
+    "bti": {
+        "name": "Bangalore Technological Institute",
+        "website": "http://www.btibangalore.org",
+        "affiliated_to": "vtu"
+    },
     "vtu": {
         "name": "Visvesvaraya Technological University",
         "website": "https://vtu.ac.in",
