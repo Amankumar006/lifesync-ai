@@ -3,7 +3,7 @@ uvicorn[standard]==0.34.0
 pydantic-settings==2.5.2
 langgraph>=0.2.0
 langgraph-checkpoint-postgres
-psycopg[binary]==3.2.1
+psycopg[binary]>=3.2.1
 psycopg-pool==3.2.2
 firebase-admin==6.5.0
 langchain-google-genai>=2.0.0
