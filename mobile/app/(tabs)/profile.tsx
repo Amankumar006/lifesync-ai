@@ -326,6 +326,8 @@ export default function ProfileScreen() {
     }
   };
 
+  const [activeLocationCard, setActiveLocationCard] = useState<"gym" | "college" | "home" | null>(null);
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -359,218 +361,281 @@ export default function ProfileScreen() {
 
         {/* GYM CARD */}
         <View style={styles.locationCard}>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>🏋️ Gym Location</Text>
-            {gymCoords ? (
-              <Text style={[styles.statusBadge, styles.activeBadge]}>Monitored</Text>
-            ) : (
-              <Text style={[styles.statusBadge, styles.inactiveBadge]}>Not Set</Text>
-            )}
-          </View>
-          
-          <View style={styles.coordsDisplayRow}>
-            <Text style={styles.coordsLabel}>Saved: </Text>
-            <Text style={styles.coordsValue}>
-              {gymCoords ? `${gymCoords.latitude.toFixed(6)}, ${gymCoords.longitude.toFixed(6)}` : "Not configured yet"}
-            </Text>
-          </View>
-
-          <View style={styles.inputsRow}>
-            <View style={styles.inputCol}>
-              <Text style={styles.inputLabel}>Latitude</Text>
-              <TextInput
-                style={styles.textInput}
-                value={gymLat}
-                onChangeText={setGymLat}
-                placeholder="e.g. 37.7749"
-                placeholderTextColor={COLORS.muted}
-                keyboardType="numeric"
-              />
+          <TouchableOpacity
+            style={styles.cardHeaderRow}
+            onPress={() => setActiveLocationCard(activeLocationCard === "gym" ? null : "gym")}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text style={{ fontSize: 18 }}>🏋️</Text>
+              <Text style={styles.cardTitle}>Gym Location</Text>
             </View>
-            <View style={styles.inputCol}>
-              <Text style={styles.inputLabel}>Longitude</Text>
-              <TextInput
-                style={styles.textInput}
-                value={gymLon}
-                onChangeText={setGymLon}
-                placeholder="e.g. -122.4194"
-                placeholderTextColor={COLORS.muted}
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
-
-          <View style={styles.buttonGroup}>
-            <TouchableOpacity
-              style={styles.cardButtonSecondary}
-              onPress={() => handleGetCurrentLocation("gym")}
-              disabled={saving !== null}
-            >
-              <Text style={styles.buttonSecondaryText}>GPS</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.cardButtonPrimary}
-              onPress={() => handleSaveLocation("gym")}
-              disabled={saving !== null}
-            >
-              {saving === "gym" ? (
-                <ActivityIndicator size="small" color="#0c0e14" />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {gymCoords ? (
+                <Text style={[styles.statusBadge, styles.activeBadge]}>Monitored</Text>
               ) : (
-                <Text style={styles.buttonPrimaryText}>Save</Text>
+                <Text style={[styles.statusBadge, styles.inactiveBadge]}>Not Set</Text>
               )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.cardButtonAccent, !gymCoords && styles.buttonDisabled]}
-              onPress={() => handleMockTrigger("gym")}
-              disabled={!gymCoords}
-            >
-              <Text style={styles.buttonAccentText}>Mock Arrival</Text>
-            </TouchableOpacity>
-          </View>
+              <Text style={{ color: COLORS.accent, fontSize: 10 }}>
+                {activeLocationCard === "gym" ? "▲" : "▼"}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          
+          {activeLocationCard === "gym" ? (
+            <View style={{ marginTop: 12 }}>
+              <View style={styles.coordsDisplayRow}>
+                <Text style={styles.coordsLabel}>Saved: </Text>
+                <Text style={styles.coordsValue}>
+                  {gymCoords ? `${gymCoords.latitude.toFixed(6)}, ${gymCoords.longitude.toFixed(6)}` : "Not configured yet"}
+                </Text>
+              </View>
+
+              <View style={styles.inputsRow}>
+                <View style={styles.inputCol}>
+                  <Text style={styles.inputLabel}>Latitude</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={gymLat}
+                    onChangeText={setGymLat}
+                    placeholder="e.g. 37.7749"
+                    placeholderTextColor={COLORS.textDim}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={styles.inputCol}>
+                  <Text style={styles.inputLabel}>Longitude</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={gymLon}
+                    onChangeText={setGymLon}
+                    placeholder="e.g. -122.4194"
+                    placeholderTextColor={COLORS.textDim}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.buttonGroup}>
+                <TouchableOpacity
+                  style={styles.cardButtonSecondary}
+                  onPress={() => handleGetCurrentLocation("gym")}
+                  disabled={saving !== null}
+                >
+                  <Text style={styles.buttonSecondaryText}>GPS</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.cardButtonPrimary}
+                  onPress={() => handleSaveLocation("gym")}
+                  disabled={saving !== null}
+                >
+                  {saving === "gym" ? (
+                    <ActivityIndicator size="small" color="#15161c" />
+                  ) : (
+                    <Text style={styles.buttonPrimaryText}>Save</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.cardButtonAccent, !gymCoords && styles.buttonDisabled]}
+                  onPress={() => handleMockTrigger("gym")}
+                  disabled={!gymCoords}
+                >
+                  <Text style={styles.buttonAccentText}>Mock Arrival</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            gymCoords && (
+              <Text style={styles.collapsedCoordsText}>
+                Saved: {gymCoords.latitude.toFixed(4)}, {gymCoords.longitude.toFixed(4)}
+              </Text>
+            )
+          )}
         </View>
 
         {/* COLLEGE CARD */}
         <View style={styles.locationCard}>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>🎓 College / Library Location</Text>
-            {collegeCoords ? (
-              <Text style={[styles.statusBadge, styles.activeBadge]}>Monitored</Text>
-            ) : (
-              <Text style={[styles.statusBadge, styles.inactiveBadge]}>Not Set</Text>
-            )}
-          </View>
-          
-          <View style={styles.coordsDisplayRow}>
-            <Text style={styles.coordsLabel}>Saved: </Text>
-            <Text style={styles.coordsValue}>
-              {collegeCoords ? `${collegeCoords.latitude.toFixed(6)}, ${collegeCoords.longitude.toFixed(6)}` : "Not configured yet"}
-            </Text>
-          </View>
-
-          <View style={styles.inputsRow}>
-            <View style={styles.inputCol}>
-              <Text style={styles.inputLabel}>Latitude</Text>
-              <TextInput
-                style={styles.textInput}
-                value={collegeLat}
-                onChangeText={setCollegeLat}
-                placeholder="e.g. 37.7749"
-                placeholderTextColor={COLORS.muted}
-                keyboardType="numeric"
-              />
+          <TouchableOpacity
+            style={styles.cardHeaderRow}
+            onPress={() => setActiveLocationCard(activeLocationCard === "college" ? null : "college")}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text style={{ fontSize: 18 }}>🎓</Text>
+              <Text style={styles.cardTitle}>College / Library Location</Text>
             </View>
-            <View style={styles.inputCol}>
-              <Text style={styles.inputLabel}>Longitude</Text>
-              <TextInput
-                style={styles.textInput}
-                value={collegeLon}
-                onChangeText={setCollegeLon}
-                placeholder="e.g. -122.4194"
-                placeholderTextColor={COLORS.muted}
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
-
-          <View style={styles.buttonGroup}>
-            <TouchableOpacity
-              style={styles.cardButtonSecondary}
-              onPress={() => handleGetCurrentLocation("college")}
-              disabled={saving !== null}
-            >
-              <Text style={styles.buttonSecondaryText}>GPS</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.cardButtonPrimary}
-              onPress={() => handleSaveLocation("college")}
-              disabled={saving !== null}
-            >
-              {saving === "college" ? (
-                <ActivityIndicator size="small" color="#0c0e14" />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {collegeCoords ? (
+                <Text style={[styles.statusBadge, styles.activeBadge]}>Monitored</Text>
               ) : (
-                <Text style={styles.buttonPrimaryText}>Save</Text>
+                <Text style={[styles.statusBadge, styles.inactiveBadge]}>Not Set</Text>
               )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.cardButtonAccent, !collegeCoords && styles.buttonDisabled]}
-              onPress={() => handleMockTrigger("college")}
-              disabled={!collegeCoords}
-            >
-              <Text style={styles.buttonAccentText}>Mock Arrival</Text>
-            </TouchableOpacity>
-          </View>
+              <Text style={{ color: COLORS.accent, fontSize: 10 }}>
+                {activeLocationCard === "college" ? "▲" : "▼"}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          
+          {activeLocationCard === "college" ? (
+            <View style={{ marginTop: 12 }}>
+              <View style={styles.coordsDisplayRow}>
+                <Text style={styles.coordsLabel}>Saved: </Text>
+                <Text style={styles.coordsValue}>
+                  {collegeCoords ? `${collegeCoords.latitude.toFixed(6)}, ${collegeCoords.longitude.toFixed(6)}` : "Not configured yet"}
+                </Text>
+              </View>
+
+              <View style={styles.inputsRow}>
+                <View style={styles.inputCol}>
+                  <Text style={styles.inputLabel}>Latitude</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={collegeLat}
+                    onChangeText={setCollegeLat}
+                    placeholder="e.g. 37.7749"
+                    placeholderTextColor={COLORS.textDim}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={styles.inputCol}>
+                  <Text style={styles.inputLabel}>Longitude</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={collegeLon}
+                    onChangeText={setCollegeLon}
+                    placeholder="e.g. -122.4194"
+                    placeholderTextColor={COLORS.textDim}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.buttonGroup}>
+                <TouchableOpacity
+                  style={styles.cardButtonSecondary}
+                  onPress={() => handleGetCurrentLocation("college")}
+                  disabled={saving !== null}
+                >
+                  <Text style={styles.buttonSecondaryText}>GPS</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.cardButtonPrimary}
+                  onPress={() => handleSaveLocation("college")}
+                  disabled={saving !== null}
+                >
+                  {saving === "college" ? (
+                    <ActivityIndicator size="small" color="#15161c" />
+                  ) : (
+                    <Text style={styles.buttonPrimaryText}>Save</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.cardButtonAccent, !collegeCoords && styles.buttonDisabled]}
+                  onPress={() => handleMockTrigger("college")}
+                  disabled={!collegeCoords}
+                >
+                  <Text style={styles.buttonAccentText}>Mock Arrival</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            collegeCoords && (
+              <Text style={styles.collapsedCoordsText}>
+                Saved: {collegeCoords.latitude.toFixed(4)}, {collegeCoords.longitude.toFixed(4)}
+              </Text>
+            )
+          )}
         </View>
 
         {/* HOME CARD */}
         <View style={styles.locationCard}>
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.cardTitle}>🏠 Home Location</Text>
-            {homeCoords ? (
-              <Text style={[styles.statusBadge, styles.activeBadge]}>Monitored</Text>
-            ) : (
-              <Text style={[styles.statusBadge, styles.inactiveBadge]}>Not Set</Text>
-            )}
-          </View>
-          
-          <View style={styles.coordsDisplayRow}>
-            <Text style={styles.coordsLabel}>Saved: </Text>
-            <Text style={styles.coordsValue}>
-              {homeCoords ? `${homeCoords.latitude.toFixed(6)}, ${homeCoords.longitude.toFixed(6)}` : "Not configured yet"}
-            </Text>
-          </View>
-
-          <View style={styles.inputsRow}>
-            <View style={styles.inputCol}>
-              <Text style={styles.inputLabel}>Latitude</Text>
-              <TextInput
-                style={styles.textInput}
-                value={homeLat}
-                onChangeText={setHomeLat}
-                placeholder="e.g. 37.7749"
-                placeholderTextColor={COLORS.muted}
-                keyboardType="numeric"
-              />
+          <TouchableOpacity
+            style={styles.cardHeaderRow}
+            onPress={() => setActiveLocationCard(activeLocationCard === "home" ? null : "home")}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text style={{ fontSize: 18 }}>🏠</Text>
+              <Text style={styles.cardTitle}>Home Location</Text>
             </View>
-            <View style={styles.inputCol}>
-              <Text style={styles.inputLabel}>Longitude</Text>
-              <TextInput
-                style={styles.textInput}
-                value={homeLon}
-                onChangeText={setHomeLon}
-                placeholder="e.g. -122.4194"
-                placeholderTextColor={COLORS.muted}
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
-
-          <View style={styles.buttonGroup}>
-            <TouchableOpacity
-              style={styles.cardButtonSecondary}
-              onPress={() => handleGetCurrentLocation("home")}
-              disabled={saving !== null}
-            >
-              <Text style={styles.buttonSecondaryText}>GPS</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.cardButtonPrimary}
-              onPress={() => handleSaveLocation("home")}
-              disabled={saving !== null}
-            >
-              {saving === "home" ? (
-                <ActivityIndicator size="small" color="#0c0e14" />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {homeCoords ? (
+                <Text style={[styles.statusBadge, styles.activeBadge]}>Monitored</Text>
               ) : (
-                <Text style={styles.buttonPrimaryText}>Save</Text>
+                <Text style={[styles.statusBadge, styles.inactiveBadge]}>Not Set</Text>
               )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.cardButtonAccent, !homeCoords && styles.buttonDisabled]}
-              onPress={() => handleMockTrigger("home")}
-              disabled={!homeCoords}
-            >
-              <Text style={styles.buttonAccentText}>Mock Arrival</Text>
-            </TouchableOpacity>
-          </View>
+              <Text style={{ color: COLORS.accent, fontSize: 10 }}>
+                {activeLocationCard === "home" ? "▲" : "▼"}
+              </Text>
+            </View>
+          </TouchableOpacity>
+          
+          {activeLocationCard === "home" ? (
+            <View style={{ marginTop: 12 }}>
+              <View style={styles.coordsDisplayRow}>
+                <Text style={styles.coordsLabel}>Saved: </Text>
+                <Text style={styles.coordsValue}>
+                  {homeCoords ? `${homeCoords.latitude.toFixed(6)}, ${homeCoords.longitude.toFixed(6)}` : "Not configured yet"}
+                </Text>
+              </View>
+
+              <View style={styles.inputsRow}>
+                <View style={styles.inputCol}>
+                  <Text style={styles.inputLabel}>Latitude</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={homeLat}
+                    onChangeText={setHomeLat}
+                    placeholder="e.g. 37.7749"
+                    placeholderTextColor={COLORS.textDim}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={styles.inputCol}>
+                  <Text style={styles.inputLabel}>Longitude</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={homeLon}
+                    onChangeText={setHomeLon}
+                    placeholder="e.g. -122.4194"
+                    placeholderTextColor={COLORS.textDim}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.buttonGroup}>
+                <TouchableOpacity
+                  style={styles.cardButtonSecondary}
+                  onPress={() => handleGetCurrentLocation("home")}
+                  disabled={saving !== null}
+                >
+                  <Text style={styles.buttonSecondaryText}>GPS</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.cardButtonPrimary}
+                  onPress={() => handleSaveLocation("home")}
+                  disabled={saving !== null}
+                >
+                  {saving === "home" ? (
+                    <ActivityIndicator size="small" color="#15161c" />
+                  ) : (
+                    <Text style={styles.buttonPrimaryText}>Save</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.cardButtonAccent, !homeCoords && styles.buttonDisabled]}
+                  onPress={() => handleMockTrigger("home")}
+                  disabled={!homeCoords}
+                >
+                  <Text style={styles.buttonAccentText}>Mock Arrival</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            homeCoords && (
+              <Text style={styles.collapsedCoordsText}>
+                Saved: {homeCoords.latitude.toFixed(4)}, {homeCoords.longitude.toFixed(4)}
+              </Text>
+            )
+          )}
         </View>
 
         <Text style={styles.sectionTitle}>📅 My Fixed Routines</Text>
@@ -602,7 +667,7 @@ export default function ProfileScreen() {
                   value={newTitle}
                   onChangeText={setNewTitle}
                   placeholder="e.g. Morning Workout, Dinner, Sleep Buffer"
-                  placeholderTextColor={COLORS.muted}
+                  placeholderTextColor={COLORS.textDim}
                 />
               </View>
 
@@ -614,7 +679,7 @@ export default function ProfileScreen() {
                     value={newTime}
                     onChangeText={setNewTime}
                     placeholder="e.g. 07:30"
-                    placeholderTextColor={COLORS.muted}
+                    placeholderTextColor={COLORS.textDim}
                   />
                 </View>
                 <View style={styles.inputCol}>
@@ -629,7 +694,7 @@ export default function ProfileScreen() {
                         ]}
                         onPress={() => setNewType(t)}
                       >
-                        <Text style={[styles.typeBadgeText, newType === t && { color: "#0c0e14" }]}>
+                        <Text style={[styles.typeBadgeText, newType === t && { color: "#15161c" }]}>
                           {t.toUpperCase()}
                         </Text>
                       </TouchableOpacity>
@@ -673,12 +738,12 @@ export default function ProfileScreen() {
             fixedBlocks.map((block, idx) => {
               const bgCol = TYPE_COLORS[block.type as keyof typeof TYPE_COLORS] || COLORS.muted;
               return (
-                <View key={idx} style={styles.routineItemRow}>
+                <View key={idx} style={[styles.routineCard, { borderLeftColor: bgCol }]}>
                   <View style={styles.routineInfoCol}>
                     <View style={styles.routineHeaderRow}>
                       <Text style={styles.routineTitle}>{block.title}</Text>
-                      <View style={[styles.typeBadgeIndicator, { backgroundColor: bgCol }]}>
-                        <Text style={styles.typeBadgeIndicatorText}>{block.type}</Text>
+                      <View style={[styles.typeBadgeIndicator, { backgroundColor: bgCol + "1a", borderColor: bgCol, borderWidth: 1 }]}>
+                        <Text style={[styles.typeBadgeIndicatorText, { color: bgCol }]}>{block.type}</Text>
                       </View>
                     </View>
                     <Text style={styles.routineTime}>{block.time} • {block.days?.map((d: string) => d.substring(0, 3)).join(", ")}</Text>
@@ -844,6 +909,12 @@ const styles = StyleSheet.create({
   inactiveBadge: {
     backgroundColor: "rgba(107, 109, 125, 0.1)",
     color: COLORS.textMuted,
+  },
+  collapsedCoordsText: {
+    color: COLORS.textDim,
+    fontSize: 11,
+    fontFamily: "monospace",
+    marginTop: 8,
   },
   coordsDisplayRow: {
     flexDirection: "row",
@@ -1039,6 +1110,18 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+  },
+  routineCard: {
+    backgroundColor: COLORS.panel,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    padding: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   routineInfoCol: {
     flex: 1,

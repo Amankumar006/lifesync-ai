@@ -11,11 +11,12 @@ import {
   ActivityIndicator,
   Modal
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAgentChat } from "../../hooks/useAgentChat";
 import { COLORS, TYPE_COLORS } from "../../constants/colors";
 
 export default function ChatScreen() {
+  const insets = useSafeAreaInsets();
   const threadId = "default-chat-thread";
   const {
     messages,
@@ -146,11 +147,11 @@ export default function ChatScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
       >
         {isOffline && (
           <View style={styles.offlineBanner}>
@@ -175,7 +176,10 @@ export default function ChatScreen() {
           </View>
         ) : null}
 
-        <View style={styles.inputContainer}>
+        <View style={[
+          styles.inputContainer,
+          { paddingBottom: insets.bottom > 0 ? insets.bottom : 12 }
+        ]}>
           <View style={styles.inputBar}>
             <TextInput
               style={styles.textInput}
@@ -183,7 +187,8 @@ export default function ChatScreen() {
               placeholderTextColor={COLORS.textDim}
               value={input}
               onChangeText={setInput}
-              onSubmitEditing={handleSubmit}
+              multiline={true}
+              blurOnSubmit={false}
             />
             <TouchableOpacity style={styles.sendButton} onPress={handleSubmit}>
               <Text style={styles.sendButtonArrow}>↑</Text>
@@ -338,6 +343,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 13,
     paddingVertical: 6,
+    maxHeight: 100,
   },
   sendButton: {
     width: 28,

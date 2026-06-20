@@ -9,7 +9,7 @@ from langchain_core.runnables import RunnableConfig
 from app.agents.llm import llm
 from app.config import settings
 from app.agents.state import AgentState
-from app.memory.store import load_user_profile, save_user_profile
+from app.memory.store import load_user_profile, save_user_profile, sync_and_load_user_profile
 from app.tools.memory import store_preference_func
 from app.tools.timetable import fetch_timetable_func
 from app.tools.calendar import write_calendar_func
@@ -96,18 +96,21 @@ async def classify_intent(state: AgentState, store: BaseStore) -> Dict[str, Any]
             "needs_clarification": False
         }
         
-    user_profile = await load_user_profile(store, user_id)
-    is_onboarding_incomplete = not user_profile or any(
-        k not in user_profile for k in ["role", "wake_time", "gym_days", "timetable"]
-    )
-    
-    classify_prompt = f"""You are an intent classifier for a personal AI academic scheduler.
+    user_profile = await sync_and_load_user_profile(store, user_id)
+    last_topic = user_profile.get("last_discovery_topic") if user_profile else None
+    context_str = ""
+    if last_topic:
+        context_str = f"\nContext: The assistant recently asked the user a question about their '{last_topic.replace('_', ' ')}'."
+        if last_topic == "college":
+            context_str += "\nCRITICAL: If the user provides a college name, abbreviation, or association (e.g. 'BTI', 'Bti', 'RVCE', 'BTI associated with vtu'), you MUST classify the 'intent' as 'info_provided'."
+            
+    classify_prompt = f"""You are an intent classifier for a personal AI academic scheduler. {context_str}
 Classify the user's latest message into one of these intents:
 - "schedule_build": User wants to build/generate/plan a schedule for a day or week (e.g., "schedule my day", "plan today", "what's my schedule").
 - "schedule_edit": User wants to edit/change a proposed or existing schedule (e.g., "move gym to 7pm", "remove the study block").
 - "entertainment_rec": User wants movie, show, or entertainment recommendations.
 - "location_trigger": Automated geofence arrival messages (e.g., "arrived at gym", "arrived at college").
-- "info_provided": User is sharing/entering/providing NEW information to the system about their college name, course details, timetable, syllabus, academic events (CIE/SEE/viva/record), or personal routines (e.g., "I study at RVCE", "CIE-1 is on June 20", "I have a lab record due tomorrow", "I go to gym at 6pm daily", "I finished unit 2", "no", "none", "nothing this week"). IMPORTANT: This is only for inputting/saving new data.
+- "info_provided": User is sharing/entering/providing NEW information to the system about their college name, course details, timetable, syllabus, academic events (CIE/SEE/viva/record), or personal routines (e.g., "I study at RVCE", "CIE-1 is on June 20", "I have a lab record due tomorrow", "I go to gym at 6pm daily", "I finished unit 2", "no", "none", "nothing this week", "Bti", "BTI associated with vtu"). IMPORTANT: This is only for inputting/saving new data.
 - "general": General chit-chat, greetings, or questions, including requests to view, retrieve, check, or show their existing classes, timetable, calendar, or tasks (e.g., "what are my classes on Monday", "show my timetable", "give my Monday college timetable", "hi", "how are you", "who are you").
 
 User Message: "{last_message}"
@@ -185,7 +188,7 @@ async def save_parsed_info(user_id: str, parsed: dict, store: BaseStore) -> str:
         return "No data extracted."
         
     db = firestore_async.client()
-    user_profile = await load_user_profile(store, user_id)
+    user_profile = await sync_and_load_user_profile(store, user_id)
     
     if info_type == "academic_event":
         if "confidence" not in info_data:
@@ -284,33 +287,7 @@ async def hydrate_context(state: AgentState, store: BaseStore) -> Dict[str, Any]
     date = state.get("intent_date") or datetime.date.today().isoformat()
     
     # 1. Load user profile and sync/merge with Firestore users doc
-    user_profile = await load_user_profile(store, user_id)
-    db = firestore_async.client()
-    
-    try:
-        user_doc = await db.collection("users").document(user_id).get()
-        if user_doc.exists:
-            firestore_data = user_doc.to_dict() or {}
-            # Merge firestore data into user_profile
-            profile_updated = False
-            for k, v in firestore_data.items():
-                if k == "completed_discovery":
-                    completed = user_profile.get("completed_discovery", [])
-                    original_len = len(completed)
-                    for item in v:
-                        if item not in completed:
-                            completed.append(item)
-                    if len(completed) > original_len:
-                        user_profile["completed_discovery"] = completed
-                        profile_updated = True
-                else:
-                    if user_profile.get(k) != v:
-                        user_profile[k] = v
-                        profile_updated = True
-            if profile_updated:
-                await save_user_profile(store, user_id, user_profile)
-    except Exception as sync_err:
-        logger.warning(f"Failed to sync user profile with Firestore in hydrate_context: {sync_err}")
+    user_profile = await sync_and_load_user_profile(store, user_id)
     
     messages = state.get("messages", [])
     last_user_msg = ""
@@ -333,7 +310,7 @@ async def hydrate_context(state: AgentState, store: BaseStore) -> Dict[str, Any]
             if parsed.get("type") != "unknown":
                 logger.info(f"Parsing inline info: {parsed}")
                 await save_parsed_info(user_id, parsed, store)
-                user_profile = await load_user_profile(store, user_id)  # Reload updated profile
+                user_profile = await sync_and_load_user_profile(store, user_id)  # Reload updated profile
         except Exception as parse_err:
             logger.warning(f"Failed parsing inline user message: {parse_err}")
 
@@ -1093,7 +1070,7 @@ async def general_chat(state: AgentState, store: BaseStore) -> Dict[str, Any]:
     tasks = []
     
     try:
-        user_profile = await load_user_profile(store, user_id)
+        user_profile = await sync_and_load_user_profile(store, user_id)
         db = firestore_async.client()
         
         schedule_info, task_queue = await asyncio.gather(
@@ -1193,7 +1170,7 @@ async def entertainment_node(state: AgentState, store: BaseStore) -> Dict[str, A
     user_id = state.get("user_id", "default_user")
     
     # ── Load user preferences from Store ──
-    user_profile = await load_user_profile(store, user_id)
+    user_profile = await sync_and_load_user_profile(store, user_id)
     
     # Default genres if user hasn't set preferences
     movie_genres = user_profile.get("movie_genres", ["action", "sci-fi", "thriller"])
@@ -1250,7 +1227,7 @@ async def location_trigger_node(state: AgentState, store: BaseStore) -> Dict[str
     last_msg_lower = last_message.lower()
 
     # Load user profile to check gym days, sleep preferences, etc.
-    user_profile = await load_user_profile(store, user_id)
+    user_profile = await sync_and_load_user_profile(store, user_id)
     if not user_profile:
         user_profile = {}
 
@@ -1296,7 +1273,7 @@ async def save_user_info_node(state: AgentState, store: BaseStore, config: Runna
     messages = state.get("messages", [])
     last_message = messages[-1].content if messages else ""
     
-    user_profile = await load_user_profile(store, user_id)
+    user_profile = await sync_and_load_user_profile(store, user_id)
     if not user_profile:
         user_profile = {}
     if "completed_discovery" not in user_profile:
@@ -1552,7 +1529,7 @@ async def check_clarification_node(state: AgentState, store: BaseStore) -> Dict[
         return {}
         
     user_id = state.get("user_id", "default_user")
-    user_profile = await load_user_profile(store, user_id)
+    user_profile = await sync_and_load_user_profile(store, user_id)
     if not user_profile:
         user_profile = {}
         

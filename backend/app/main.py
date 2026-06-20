@@ -106,4 +106,6 @@ app.include_router(upload_router, prefix="/api")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host=settings.HOST, port=settings.PORT, reload=True)
+    import os
+    port = int(os.environ.get("PORT", settings.PORT))
+    uvicorn.run("app.main:app", host=settings.HOST, port=port, reload=True)

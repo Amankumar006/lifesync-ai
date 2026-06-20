@@ -10,7 +10,7 @@ def _parse_heuristically(message: str) -> dict:
     """Heuristic fallback parsing when LLM calls fail or are bypassed."""
     msg_lower = message.lower()
     
-    if "rvce" in msg_lower or "college" in msg_lower or "study at" in msg_lower:
+    if any(x in msg_lower for x in ["rvce", "college", "study at", "bti", "vtu", "bmsce", "msrit"]):
         branch = "CSE"
         if "ise" in msg_lower:
             branch = "ISE"
@@ -27,10 +27,18 @@ def _parse_heuristically(message: str) -> dict:
         if scheme_match:
             scheme = scheme_match.group(1)
             
+        college = "RVCE"
+        if "bti" in msg_lower:
+            college = "BTI"
+        elif "bmsce" in msg_lower:
+            college = "BMSCE"
+        elif "msrit" in msg_lower:
+            college = "MSRIT"
+            
         return {
             "type": "college_info",
             "data": {
-                "college": "RVCE",
+                "college": college,
                 "branch": branch,
                 "semester": sem,
                 "scheme": scheme
@@ -128,7 +136,14 @@ async def parse_user_info(message: str, profile: dict, user_id: str = None) -> d
         
     current_date = datetime.date.today().isoformat()
     
-    prompt = f"""Extract academic/schedule information from this message.
+    last_topic = profile.get("last_discovery_topic") if profile else None
+    context_str = ""
+    if last_topic:
+        context_str = f"\nContext: The user is replying to a discovery question about their '{last_topic.replace('_', ' ')}'."
+        if last_topic == "college":
+            context_str += "\nCRITICAL: If the user provides a college name, abbreviation, or association (e.g. 'Bti', 'BTI associated with vtu', 'RVCE', etc.), you MUST classify the message 'type' as 'college_info' and set the extracted college name in the 'college' field of 'data'. Do not classify it as 'general' or 'note'."
+        
+    prompt = f"""Extract academic/schedule information from this message. {context_str}
 Current Date: {current_date}
 
 Return JSON only:

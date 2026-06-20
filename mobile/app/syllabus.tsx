@@ -332,7 +332,10 @@ export default function SyllabusScreen() {
       <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
         {/* HEADER SECTION */}
         <View style={styles.headerRow}>
-          <Text style={styles.sectionLabel}>📚 Track Course Progress</Text>
+          <View style={styles.headerTextCol}>
+            <Text style={styles.sectionLabel}>📚 Course Syllabus</Text>
+            <Text style={styles.headerSubtitle}>Track modules, progress, and key topics</Text>
+          </View>
           <TouchableOpacity
             style={styles.addSubjectBtn}
             onPress={() => setShowAddSubject(!showAddSubject)}
@@ -353,7 +356,7 @@ export default function SyllabusScreen() {
                 value={newSubjectName}
                 onChangeText={setNewSubjectName}
                 placeholder="e.g. Operating Systems"
-                placeholderTextColor={COLORS.muted}
+                placeholderTextColor={COLORS.textDim}
               />
             </View>
             <View style={styles.formInputGroup}>
@@ -363,7 +366,7 @@ export default function SyllabusScreen() {
                 value={newSubjectScheme}
                 onChangeText={setNewSubjectScheme}
                 placeholder="e.g. VTU 2022"
-                placeholderTextColor={COLORS.muted}
+                placeholderTextColor={COLORS.textDim}
               />
             </View>
             <TouchableOpacity
@@ -393,9 +396,18 @@ export default function SyllabusScreen() {
           subjects.map(subject => {
             const isExpanded = !!expandedSubjects[subject.id];
             const avgProgress = calculateSubjectProgress(subject.units);
+            const isCompleted = avgProgress === 100;
+            const hasStarted = avgProgress > 0;
             
             return (
-              <View key={subject.id} style={styles.subjectCard}>
+              <View 
+                key={subject.id} 
+                style={[
+                  styles.subjectCard, 
+                  isExpanded && styles.subjectCardExpanded,
+                  { borderLeftColor: isCompleted ? COLORS.green : hasStarted ? COLORS.lavender : COLORS.border }
+                ]}
+              >
                 {/* Subject Title Card */}
                 <TouchableOpacity
                   style={styles.cardHeader}
@@ -406,9 +418,17 @@ export default function SyllabusScreen() {
                     <Text style={styles.subjectScheme}>{subject.scheme || "Syllabus Plan"} • {subject.units.length} Modules</Text>
                   </View>
                   <View style={styles.headerProgressCol}>
-                    <Text style={styles.progressPctText}>{avgProgress}%</Text>
+                    <Text style={[styles.progressPctText, { color: isCompleted ? COLORS.green : COLORS.accent }]}>{avgProgress}%</Text>
                     <View style={styles.progressBarBg}>
-                      <View style={[styles.progressBarFill, { width: `${avgProgress}%` }]} />
+                      <View 
+                        style={[
+                          styles.progressBarFill, 
+                          { 
+                            width: `${avgProgress}%`,
+                            backgroundColor: isCompleted ? COLORS.green : COLORS.accent
+                          }
+                        ]} 
+                      />
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -446,6 +466,7 @@ export default function SyllabusScreen() {
                                   style={styles.editTitleInput}
                                   value={editingUnitTitle}
                                   onChangeText={setEditingUnitTitle}
+                                  autoFocus
                                 />
                                 <TouchableOpacity
                                   style={styles.saveTitleBtn}
@@ -475,7 +496,7 @@ export default function SyllabusScreen() {
                           {/* Completion Percent Control */}
                           <View style={styles.progressControlRow}>
                             <Text style={styles.progressLabel}>Completion:</Text>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                               <TouchableOpacity
                                 style={styles.adjustBtn}
                                 onPress={() => updateUnitField(subject.id, unit.number, "completion_percent", unit.completion_percent - 10)}
@@ -484,19 +505,7 @@ export default function SyllabusScreen() {
                               </TouchableOpacity>
                               
                               <TextInput
-                                style={{
-                                  backgroundColor: COLORS.bg,
-                                  color: COLORS.accent,
-                                  borderWidth: 1,
-                                  borderColor: COLORS.border,
-                                  borderRadius: 6,
-                                  width: 40,
-                                  height: 28,
-                                  textAlign: "center",
-                                  fontSize: 11,
-                                  fontWeight: "700",
-                                  padding: 0
-                                }}
+                                style={styles.percentInput}
                                 keyboardType="numeric"
                                 value={String(unit.completion_percent)}
                                 onChangeText={(text) => {
@@ -508,7 +517,7 @@ export default function SyllabusScreen() {
                                   }
                                 }}
                               />
-                              <Text style={{ color: COLORS.accent, fontSize: 11, fontWeight: "700", marginRight: 4 }}>%</Text>
+                              <Text style={styles.percentSymbol}>%</Text>
 
                               <TouchableOpacity
                                 style={styles.adjustBtn}
@@ -524,17 +533,17 @@ export default function SyllabusScreen() {
                             {["not_started", "in_progress", "completed"].map(st => {
                               const isActive = unit.status === st;
                               let label = "NOT STARTED";
-                              let activeBg = "rgba(90, 96, 128, 0.15)";
-                              let activeText = COLORS.muted;
+                              let activeBg = "rgba(107, 109, 125, 0.15)";
+                              let activeText = COLORS.textDim;
                               
                               if (st === "in_progress") {
                                 label = "IN PROGRESS";
-                                activeBg = "rgba(196, 122, 255, 0.15)";
-                                activeText = "#c47aff";
+                                activeBg = COLORS.lavenderBg;
+                                activeText = COLORS.lavender;
                               } else if (st === "completed") {
                                 label = "COMPLETED";
-                                activeBg = "rgba(0, 229, 160, 0.15)";
-                                activeText = COLORS.accent;
+                                activeBg = "rgba(110, 231, 168, 0.12)";
+                                activeText = COLORS.green;
                               }
 
                               return (
@@ -577,7 +586,7 @@ export default function SyllabusScreen() {
                                 value={currentTopicText}
                                 onChangeText={(val) => setNewTopicTexts(prev => ({ ...prev, [topicKey]: val }))}
                                 placeholder="Add key topic..."
-                                placeholderTextColor={COLORS.muted}
+                                placeholderTextColor={COLORS.textDim}
                               />
                               <TouchableOpacity
                                 style={styles.addTopicBtn}
@@ -616,24 +625,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20
   },
+  headerTextCol: {
+    flex: 1,
+  },
   sectionLabel: {
     color: COLORS.text,
-    fontSize: 14,
-    fontWeight: "700",
-    fontFamily: "monospace"
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  headerSubtitle: {
+    color: COLORS.textDim,
+    fontSize: 12,
+    marginTop: 2,
   },
   addSubjectBtn: {
-    backgroundColor: "rgba(0, 229, 160, 0.1)",
+    backgroundColor: COLORS.accentBg,
     borderWidth: 1,
-    borderColor: COLORS.accent,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5
+    borderColor: COLORS.accentLine,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6
   },
   addSubjectBtnText: {
     color: COLORS.accent,
     fontSize: 11,
-    fontFamily: "monospace",
     fontWeight: "700"
   },
   addForm: {
@@ -654,9 +669,9 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   inputLabel: {
-    color: COLORS.muted,
-    fontSize: 10,
-    fontFamily: "monospace",
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: "600",
     marginBottom: 6
   },
   textInput: {
@@ -664,22 +679,21 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 12,
-    fontFamily: "monospace"
+    paddingVertical: 10,
+    fontSize: 13,
   },
   submitBtn: {
     backgroundColor: COLORS.accent,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingVertical: 12,
     alignItems: "center",
     marginTop: 8
   },
   submitBtnText: {
     color: "#0c0e14",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700"
   },
   centerContainer: {
@@ -696,7 +710,7 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   emptyText: {
-    color: COLORS.muted,
+    color: COLORS.textMuted,
     fontSize: 12,
     lineHeight: 18,
     textAlign: "center"
@@ -707,7 +721,12 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 16,
     marginBottom: 16,
-    overflow: "hidden"
+    overflow: "hidden",
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.border
+  },
+  subjectCardExpanded: {
+    borderColor: COLORS.accentLine
   },
   cardHeader: {
     padding: 16,
@@ -725,10 +744,9 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   subjectScheme: {
-    color: COLORS.muted,
-    fontSize: 11,
+    color: COLORS.textDim,
+    fontSize: 12,
     marginTop: 4,
-    fontFamily: "monospace"
   },
   headerProgressCol: {
     flex: 1,
@@ -756,7 +774,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     padding: 16,
-    backgroundColor: "rgba(15, 17, 24, 0.4)"
+    backgroundColor: "rgba(20, 21, 28, 0.4)"
   },
   cardActionsHeader: {
     flexDirection: "row",
@@ -765,11 +783,12 @@ const styles = StyleSheet.create({
     marginBottom: 16
   },
   actionBtnSecondary: {
+    backgroundColor: COLORS.panel,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8
   },
   actionBtnText: {
     color: COLORS.text,
@@ -778,19 +797,19 @@ const styles = StyleSheet.create({
   },
   deleteSubjectBtn: {
     paddingHorizontal: 8,
-    paddingVertical: 6
+    paddingVertical: 8
   },
   deleteSubjectBtnText: {
-    color: COLORS.error,
+    color: COLORS.red,
     fontSize: 11,
     fontWeight: "700"
   },
   unitItem: {
-    backgroundColor: COLORS.bg,
+    backgroundColor: COLORS.panel,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 12,
-    padding: 12,
+    padding: 14,
     marginBottom: 12
   },
   unitHeaderRow: {
@@ -804,7 +823,7 @@ const styles = StyleSheet.create({
   },
   unitTitleText: {
     color: COLORS.text,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700"
   },
   removeUnitBtn: {
@@ -812,7 +831,7 @@ const styles = StyleSheet.create({
     marginLeft: 8
   },
   removeUnitText: {
-    color: COLORS.muted,
+    color: COLORS.textDim,
     fontSize: 12
   },
   editTitleRow: {
@@ -823,28 +842,28 @@ const styles = StyleSheet.create({
   },
   editTitleInput: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.bg,
     color: COLORS.text,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 6,
+    borderRadius: 8,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 6,
     fontSize: 12
   },
   saveTitleBtn: {
-    backgroundColor: "rgba(0, 229, 160, 0.1)",
+    backgroundColor: COLORS.accentBg,
     borderWidth: 1,
-    borderColor: COLORS.accent,
-    borderRadius: 6,
-    width: 28,
-    height: 28,
+    borderColor: COLORS.accentLine,
+    borderRadius: 8,
+    width: 32,
+    height: 32,
     justifyContent: "center",
     alignItems: "center"
   },
   saveTitleBtnText: {
     color: COLORS.accent,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "700"
   },
   progressControlRow: {
@@ -853,28 +872,42 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
     backgroundColor: COLORS.surface,
-    padding: 8,
-    borderRadius: 8
+    padding: 10,
+    borderRadius: 10
   },
   progressLabel: {
-    color: COLORS.text,
-    fontSize: 11,
-    fontFamily: "monospace"
+    color: COLORS.textMuted,
+    fontSize: 12,
   },
-  progressBtnGroup: {
-    flexDirection: "row",
-    gap: 8
+  percentInput: {
+    backgroundColor: COLORS.bg,
+    color: COLORS.accent,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    width: 44,
+    height: 30,
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "700",
+    padding: 0
+  },
+  percentSymbol: {
+    color: COLORS.accent,
+    fontSize: 12,
+    fontWeight: "700",
+    marginRight: 4
   },
   adjustBtn: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 6,
+    borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 6,
     backgroundColor: COLORS.bg
   },
   adjustBtnText: {
-    color: COLORS.text,
+    color: COLORS.textMuted,
     fontSize: 10,
     fontFamily: "monospace",
     fontWeight: "700"
@@ -888,13 +921,13 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 6,
-    paddingVertical: 6,
+    borderRadius: 8,
+    paddingVertical: 8,
     alignItems: "center",
     backgroundColor: COLORS.surface
   },
   statusBtnText: {
-    color: COLORS.muted,
+    color: COLORS.textDim,
     fontSize: 9,
     fontFamily: "monospace",
     fontWeight: "700"
@@ -902,37 +935,43 @@ const styles = StyleSheet.create({
   topicsSection: {
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    paddingTop: 10
+    paddingTop: 12
   },
   topicsHeading: {
-    color: COLORS.muted,
+    color: COLORS.textDim,
     fontSize: 10,
     fontFamily: "monospace",
     fontWeight: "700",
-    marginBottom: 8
+    marginBottom: 8,
+    textTransform: "uppercase"
   },
   topicRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 6,
-    paddingLeft: 4
+    marginBottom: 8,
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.02)"
   },
   topicBullet: {
-    color: COLORS.accent,
+    color: COLORS.lavender,
     fontSize: 14,
-    marginRight: 6
+    marginRight: 8
   },
   topicText: {
     flex: 1,
     color: COLORS.text,
-    fontSize: 11
+    fontSize: 12
   },
   removeTopicBtn: {
-    padding: 4
+    padding: 6
   },
   removeTopicBtnText: {
-    color: COLORS.muted,
-    fontSize: 10
+    color: COLORS.textDim,
+    fontSize: 11
   },
   addTopicRow: {
     flexDirection: "row",
@@ -945,24 +984,24 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    fontSize: 11
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    fontSize: 12
   },
   addTopicBtn: {
-    backgroundColor: "rgba(0, 229, 160, 0.1)",
+    backgroundColor: COLORS.accentBg,
     borderWidth: 1,
-    borderColor: COLORS.accent,
-    borderRadius: 6,
-    width: 28,
-    height: 28,
+    borderColor: COLORS.accentLine,
+    borderRadius: 8,
+    width: 32,
+    height: 32,
     justifyContent: "center",
     alignItems: "center"
   },
   addTopicBtnText: {
     color: COLORS.accent,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "700"
   }
 });

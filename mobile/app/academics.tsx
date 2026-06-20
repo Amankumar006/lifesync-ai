@@ -423,46 +423,52 @@ export default function AcademicsScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
         {/* DOCUMENT UPLOAD SECTION */}
-        <Text style={styles.sectionLabel}>📁 Auto-fill from Documents</Text>
-        <Text style={styles.sectionSubtitle}>
-          Upload a screenshot of your timetable or a PDF copy of your syllabus. Gemini will parse and sync the structures.
-        </Text>
+        <View style={styles.uploadHeaderSection}>
+          <Text style={styles.sectionLabel}>📁 Document Parsing & Sync</Text>
+          <Text style={styles.sectionSubtitle}>
+            Upload your timetable screenshot or syllabus PDF. Gemini will extract, structure, and synchronize them automatically.
+          </Text>
+        </View>
 
         <View style={styles.uploadRow}>
           <TouchableOpacity
-            style={styles.uploadCard}
+            style={[styles.uploadCard, uploading === "timetable" && styles.uploadCardActive]}
             onPress={handlePickTimetableImage}
             disabled={uploading !== null}
           >
             {uploading === "timetable" ? (
               <View style={{ alignItems: "center" }}>
                 <ActivityIndicator size="small" color={COLORS.accent} />
-                <Text style={[styles.uploadCardSub, { marginTop: 8, color: COLORS.accent }]}>Reading your timetable...</Text>
+                <Text style={[styles.uploadCardProgressText, { marginTop: 8 }]}>Reading timetable...</Text>
               </View>
             ) : (
               <>
-                <Text style={styles.uploadCardIcon}>📅</Text>
-                <Text style={styles.uploadCardTitle}>Upload Timetable</Text>
-                <Text style={styles.uploadCardSub}>Screenshot (max 5MB)</Text>
+                <View style={styles.uploadIconCircle}>
+                  <Text style={styles.uploadCardIcon}>📅</Text>
+                </View>
+                <Text style={styles.uploadCardTitle}>Timetable Screenshot</Text>
+                <Text style={styles.uploadCardSub}>Upload image (max 5MB)</Text>
               </>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.uploadCard}
+            style={[styles.uploadCard, uploading === "syllabus" && styles.uploadCardActive]}
             onPress={handlePickSyllabusPdf}
             disabled={uploading !== null}
           >
             {uploading === "syllabus" ? (
               <View style={{ alignItems: "center" }}>
                 <ActivityIndicator size="small" color={COLORS.accent} />
-                <Text style={[styles.uploadCardSub, { marginTop: 8, color: COLORS.accent }]}>Reading your syllabus...</Text>
+                <Text style={[styles.uploadCardProgressText, { marginTop: 8 }]}>Reading syllabus...</Text>
               </View>
             ) : (
               <>
-                <Text style={styles.uploadCardIcon}>📖</Text>
-                <Text style={styles.uploadCardTitle}>Upload Syllabus PDF</Text>
-                <Text style={styles.uploadCardSub}>Manual fallback (max 5MB)</Text>
+                <View style={styles.uploadIconCircle}>
+                  <Text style={styles.uploadCardIcon}>📖</Text>
+                </View>
+                <Text style={styles.uploadCardTitle}>Syllabus Document</Text>
+                <Text style={styles.uploadCardSub}>Upload PDF (max 5MB)</Text>
               </>
             )}
           </TouchableOpacity>
@@ -477,13 +483,13 @@ export default function AcademicsScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.promptContainer}>
               <Text style={styles.promptHeader}>Target Subject</Text>
-              <Text style={styles.promptSub}>Type the course/subject name exactly (e.g. Design and Analysis of Algorithms, DBMS):</Text>
+              <Text style={styles.promptSub}>Type the course/subject name exactly (e.g. Operating Systems, DBMS):</Text>
               <TextInput
                 style={styles.promptInput}
                 value={syllabusSubject}
                 onChangeText={setSyllabusSubject}
                 placeholder="e.g. Operating Systems"
-                placeholderTextColor={COLORS.muted}
+                placeholderTextColor={COLORS.textDim}
               />
               <View style={styles.promptButtons}>
                 <TouchableOpacity
@@ -541,9 +547,9 @@ export default function AcademicsScreen() {
                             {isEditingTimetable ? (
                               <>
                                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                                  <Text style={styles.inputLabel}>Class #{idx + 1}</Text>
+                                  <Text style={styles.classLabelText}>Class #{idx + 1}</Text>
                                   <TouchableOpacity onPress={() => removeClass(day, idx)}>
-                                    <Text style={{ color: COLORS.error, fontSize: 11, fontWeight: "700" }}>Delete 🗑️</Text>
+                                    <Text style={{ color: COLORS.red, fontSize: 11, fontWeight: "700" }}>Delete 🗑️</Text>
                                   </TouchableOpacity>
                                 </View>
                                 <TextInput
@@ -551,7 +557,7 @@ export default function AcademicsScreen() {
                                   value={cls.subject}
                                   onChangeText={(val) => updateClassField(day, idx, "subject", val)}
                                   placeholder="Subject (e.g. DAA)"
-                                  placeholderTextColor={COLORS.muted}
+                                  placeholderTextColor={COLORS.textDim}
                                 />
                                 <View style={{ flexDirection: "row", gap: 8 }}>
                                   <TextInput
@@ -559,21 +565,21 @@ export default function AcademicsScreen() {
                                     value={cls.time}
                                     onChangeText={(val) => updateClassField(day, idx, "time", val)}
                                     placeholder="Time (e.g. 09:00)"
-                                    placeholderTextColor={COLORS.muted}
+                                    placeholderTextColor={COLORS.textDim}
                                   />
                                   <TextInput
                                     style={[styles.classInput, { flex: 1 }]}
                                     value={cls.room}
                                     onChangeText={(val) => updateClassField(day, idx, "room", val)}
                                     placeholder="Room (e.g. LH-201)"
-                                    placeholderTextColor={COLORS.muted}
+                                    placeholderTextColor={COLORS.textDim}
                                   />
                                   <TextInput
                                     style={[styles.classInput, { flex: 1 }]}
                                     value={cls.professor}
                                     onChangeText={(val) => updateClassField(day, idx, "professor", val)}
                                     placeholder="Prof (e.g. Dr. Roy)"
-                                    placeholderTextColor={COLORS.muted}
+                                    placeholderTextColor={COLORS.textDim}
                                   />
                                 </View>
                               </>
@@ -582,7 +588,7 @@ export default function AcademicsScreen() {
                                 <Text style={[styles.classText, { fontWeight: "700", color: COLORS.accent }]}>
                                   {cls.subject || "Untitled Class"}
                                 </Text>
-                                <Text style={[styles.classText, { color: COLORS.muted, marginTop: 4 }]}>
+                                <Text style={[styles.classText, { color: COLORS.textMuted, marginTop: 4 }]}>
                                   ⏰ {cls.time || "No time"} | 📍 {cls.room || "No room"} | 👤 {cls.professor || "No prof"}
                                 </Text>
                               </View>
@@ -593,17 +599,9 @@ export default function AcademicsScreen() {
                         {isEditingTimetable && (
                           <TouchableOpacity 
                             onPress={() => addClass(day)} 
-                            style={{ 
-                              borderWidth: 1, 
-                              borderColor: COLORS.accent, 
-                              borderStyle: "dashed", 
-                              borderRadius: 8, 
-                              padding: 8, 
-                              alignItems: "center", 
-                              marginTop: 4 
-                            }}
+                            style={styles.addClassBtn}
                           >
-                            <Text style={{ color: COLORS.accent, fontSize: 11, fontFamily: "monospace", fontWeight: "700" }}>
+                            <Text style={styles.addClassBtnText}>
                               + Add Class to {day}
                             </Text>
                           </TouchableOpacity>
@@ -623,16 +621,16 @@ export default function AcademicsScreen() {
                         <Text style={styles.btnSecondaryText}>Close</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.confirmBtnSecondary, { backgroundColor: "rgba(239, 68, 68, 0.15)", borderRadius: 8, paddingHorizontal: 12 }]}
+                        style={[styles.confirmBtnSecondary, { backgroundColor: "rgba(255, 138, 155, 0.1)", borderRadius: 10, paddingHorizontal: 14 }]}
                         onPress={() => setIsEditingTimetable(true)}
                       >
-                        <Text style={[styles.btnSecondaryText, { color: "#ef4444" }]}>Something's wrong ✏️</Text>
+                        <Text style={[styles.btnSecondaryText, { color: COLORS.red }]}>Edit Details ✏️</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.confirmBtnPrimary}
                         onPress={handleConfirmTimetable}
                       >
-                        <Text style={styles.btnPrimaryText}>Looks correct ✓</Text>
+                        <Text style={styles.btnPrimaryText}>Confirm ✓</Text>
                       </TouchableOpacity>
                     </>
                   ) : (
@@ -700,13 +698,16 @@ export default function AcademicsScreen() {
 
         {/* MANUAL MILESTONE ADDITION */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionLabel}>🎓 Academic Milestones</Text>
+          <View>
+            <Text style={styles.sectionLabel}>🎓 Academic Milestones</Text>
+            <Text style={styles.sectionSubtitleText}>Assignments, exams, and grading milestones</Text>
+          </View>
           <TouchableOpacity
             style={styles.addButton}
             onPress={() => setShowAddForm(!showAddForm)}
           >
             <Text style={styles.addButtonText}>
-              {showAddForm ? "Close Form" : "+ Add Milestone"}
+              {showAddForm ? "Close" : "+ Add Milestone"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -722,36 +723,66 @@ export default function AcademicsScreen() {
                 value={title}
                 onChangeText={setTitle}
                 placeholder="e.g. CIE-1: Database Systems"
-                placeholderTextColor={COLORS.muted}
+                placeholderTextColor={COLORS.textDim}
               />
             </View>
 
-            <View style={styles.inputsRow}>
-              <View style={styles.inputCol}>
-                <Text style={styles.inputLabel}>Due Date (YYYY-MM-DD)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={date}
-                  onChangeText={setDate}
-                  placeholder="e.g. 2026-06-25"
-                  placeholderTextColor={COLORS.muted}
-                />
-              </View>
-              <View style={styles.inputCol}>
-                <Text style={styles.inputLabel}>Milestone Type</Text>
-                <View style={styles.typeSelector}>
-                  {["cie", "see", "assignment", "lab_record", "viva"].map(t => (
+            <View style={styles.formInputGroup}>
+              <Text style={styles.inputLabel}>Due Date (YYYY-MM-DD)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={date}
+                onChangeText={setDate}
+                placeholder="e.g. 2026-06-25"
+                placeholderTextColor={COLORS.textDim}
+              />
+            </View>
+
+            <View style={styles.formInputGroup}>
+              <Text style={styles.inputLabel}>Milestone Type</Text>
+              <View style={styles.typeSelector}>
+                {["cie", "see", "assignment", "lab_record", "viva"].map(t => {
+                  const isSelected = type === t;
+                  let activeBg = COLORS.accentBg;
+                  let activeBorder = COLORS.accent;
+                  let activeText = COLORS.accent;
+                  
+                  if (t === "see") {
+                    activeBg = "rgba(255, 138, 155, 0.12)";
+                    activeBorder = COLORS.red;
+                    activeText = COLORS.red;
+                  } else if (t === "assignment") {
+                    activeBg = COLORS.lavenderBg;
+                    activeBorder = COLORS.lavender;
+                    activeText = COLORS.lavender;
+                  } else if (t === "lab_record") {
+                    activeBg = "rgba(110, 231, 168, 0.12)";
+                    activeBorder = COLORS.green;
+                    activeText = COLORS.green;
+                  } else if (t === "viva") {
+                    activeBg = "rgba(127, 182, 255, 0.12)";
+                    activeBorder = COLORS.blue;
+                    activeText = COLORS.blue;
+                  }
+
+                  return (
                     <TouchableOpacity
                       key={t}
-                      style={[styles.typeButton, type === t && styles.selectedTypeButton]}
+                      style={[
+                        styles.typeButton, 
+                        isSelected && { backgroundColor: activeBg, borderColor: activeBorder }
+                      ]}
                       onPress={() => setType(t as any)}
                     >
-                      <Text style={[styles.typeButtonText, type === t && styles.selectedTypeButtonText]}>
+                      <Text style={[
+                        styles.typeButtonText, 
+                        isSelected && { color: activeText, fontWeight: "700" }
+                      ]}>
                         {t.toUpperCase().replace("_", " ")}
                       </Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
+                  );
+                })}
               </View>
             </View>
 
@@ -762,7 +793,7 @@ export default function AcademicsScreen() {
                 value={description}
                 onChangeText={setDescription}
                 placeholder="Details (modules covered, grading weights, etc.)"
-                placeholderTextColor={COLORS.muted}
+                placeholderTextColor={COLORS.textDim}
                 multiline={true}
               />
             </View>
@@ -794,26 +825,52 @@ export default function AcademicsScreen() {
           events.map(event => {
             const daysColor = getDaysRemainingColor(event.date);
             const daysText = getDaysRemainingText(event.date);
+
+            let eventColor = COLORS.accent;
+            let eventTypeBg = COLORS.accentBg;
+            if (event.type === "cie") {
+              eventColor = COLORS.accent;
+              eventTypeBg = COLORS.accentBg;
+            } else if (event.type === "see") {
+              eventColor = COLORS.red;
+              eventTypeBg = "rgba(255, 138, 155, 0.12)";
+            } else if (event.type === "assignment") {
+              eventColor = COLORS.lavender;
+              eventTypeBg = COLORS.lavenderBg;
+            } else if (event.type === "lab_record") {
+              eventColor = COLORS.green;
+              eventTypeBg = "rgba(110, 231, 168, 0.12)";
+            } else if (event.type === "viva") {
+              eventColor = COLORS.blue;
+              eventTypeBg = "rgba(127, 182, 255, 0.12)";
+            }
             
             return (
-              <View key={event.id} style={styles.eventCard}>
+              <View 
+                key={event.id} 
+                style={[
+                  styles.eventCard, 
+                  { borderLeftColor: eventColor },
+                  event.confidence === "scraped" && styles.eventCardScraped
+                ]}
+              >
                 <View style={styles.eventHeader}>
                   <View style={styles.eventTitleCol}>
                     <Text style={styles.eventTitle}>{event.title}</Text>
-                    <View style={styles.badgeContainer}>
-                      <Text style={styles.badgeText}>{event.type.toUpperCase()}</Text>
+                    <View style={[styles.badgeContainer, { backgroundColor: eventTypeBg }]}>
+                      <Text style={[styles.badgeText, { color: eventColor }]}>{event.type.toUpperCase()}</Text>
                     </View>
                     {event.confidence === "scraped" && (
-                      <View style={[styles.badgeContainer, { backgroundColor: "rgba(245, 158, 11, 0.15)" }]}>
-                        <Text style={[styles.badgeText, { color: "#f59e0b" }]}>⚠️ TENTATIVE</Text>
+                      <View style={[styles.badgeContainer, { backgroundColor: "rgba(255, 212, 121, 0.12)" }]}>
+                        <Text style={[styles.badgeText, { color: COLORS.yellow }]}>⚠️ TENTATIVE</Text>
                       </View>
                     )}
                   </View>
                   <TouchableOpacity
-                    style={styles.deleteButton}
+                    style={styles.deleteMilestoneButton}
                     onPress={() => handleDeleteEvent(event.id)}
                   >
-                    <Text style={styles.deleteButtonText}>🗑️</Text>
+                    <Text style={styles.deleteMilestoneButtonText}>✕</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -827,14 +884,9 @@ export default function AcademicsScreen() {
                     {event.confidence === "scraped" && (
                       <TouchableOpacity
                         onPress={() => handleConfirmEvent(event.id)}
-                        style={{
-                          backgroundColor: COLORS.accent,
-                          paddingHorizontal: 8,
-                          paddingVertical: 3,
-                          borderRadius: 4,
-                        }}
+                        style={styles.confirmEventBtn}
                       >
-                        <Text style={{ color: "#0c0e14", fontSize: 9, fontWeight: "700" }}>Confirm Date</Text>
+                        <Text style={styles.confirmEventBtnText}>Confirm Date</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -860,15 +912,17 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     color: COLORS.text,
-    fontSize: 14,
-    fontWeight: "700",
-    fontFamily: "monospace",
+    fontSize: 18,
+    fontWeight: "800",
     marginBottom: 6
   },
   sectionSubtitle: {
-    color: COLORS.muted,
+    color: COLORS.textDim,
     fontSize: 12,
     lineHeight: 18,
+    marginBottom: 16
+  },
+  uploadHeaderSection: {
     marginBottom: 16
   },
   uploadRow: {
@@ -879,47 +933,71 @@ const styles = StyleSheet.create({
   uploadCard: {
     flex: 1,
     backgroundColor: COLORS.surface,
-    borderWidth: 1,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
     borderColor: COLORS.border,
     borderRadius: 16,
     padding: 16,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 120
+    minHeight: 140
+  },
+  uploadCardActive: {
+    borderColor: COLORS.accent,
+    backgroundColor: COLORS.accentBg
+  },
+  uploadIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.panel,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10
   },
   uploadCardIcon: {
-    fontSize: 24,
-    marginBottom: 8
+    fontSize: 18
   },
   uploadCardTitle: {
     color: COLORS.text,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
+    textAlign: "center",
     marginBottom: 4
   },
   uploadCardSub: {
-    color: COLORS.muted,
+    color: COLORS.textDim,
     fontSize: 10,
-    fontFamily: "monospace"
+    textAlign: "center"
+  },
+  uploadCardProgressText: {
+    color: COLORS.accent,
+    fontSize: 11,
+    fontWeight: "700"
   },
   sectionHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16
+    marginBottom: 16,
+    marginTop: 8
+  },
+  sectionSubtitleText: {
+    color: COLORS.textDim,
+    fontSize: 12,
+    marginTop: 2
   },
   addButton: {
-    backgroundColor: "rgba(0, 229, 160, 0.1)",
+    backgroundColor: COLORS.accentBg,
     borderWidth: 1,
-    borderColor: COLORS.accent,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5
+    borderColor: COLORS.accentLine,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6
   },
   addButtonText: {
     color: COLORS.accent,
     fontSize: 11,
-    fontFamily: "monospace",
     fontWeight: "700"
   },
   addForm: {
@@ -940,9 +1018,9 @@ const styles = StyleSheet.create({
     marginBottom: 12
   },
   inputLabel: {
-    color: COLORS.muted,
-    fontSize: 10,
-    fontFamily: "monospace",
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: "600",
     marginBottom: 6
   },
   textInput: {
@@ -950,58 +1028,45 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 12,
-    fontFamily: "monospace"
-  },
-  inputsRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 12
-  },
-  inputCol: {
-    flex: 1
+    paddingVertical: 10,
+    fontSize: 13,
   },
   typeSelector: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6
+    gap: 6,
+    marginTop: 4
   },
   typeButton: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4
-  },
-  selectedTypeButton: {
-    backgroundColor: COLORS.accent,
-    borderColor: COLORS.accent
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: COLORS.panel
   },
   typeButtonText: {
-    color: COLORS.muted,
+    color: COLORS.textDim,
     fontSize: 9,
     fontFamily: "monospace",
     fontWeight: "700"
   },
-  selectedTypeButtonText: {
-    color: "#0c0e14"
-  },
   textArea: {
-    minHeight: 60,
+    minHeight: 80,
     textAlignVertical: "top"
   },
   submitButton: {
     backgroundColor: COLORS.accent,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingVertical: 12,
-    alignItems: "center"
+    alignItems: "center",
+    marginTop: 8
   },
   submitButtonText: {
     color: "#0c0e14",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700"
   },
   loadingContainer: {
@@ -1017,7 +1082,7 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   emptyText: {
-    color: COLORS.muted,
+    color: COLORS.textMuted,
     fontSize: 12,
     lineHeight: 18,
     textAlign: "center"
@@ -1026,9 +1091,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
+    borderLeftWidth: 4,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12
+  },
+  eventCardScraped: {
+    borderStyle: "dashed"
   },
   eventHeader: {
     flexDirection: "row",
@@ -1049,25 +1118,25 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   badgeContainer: {
-    backgroundColor: "rgba(90, 96, 128, 0.15)",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4
   },
   badgeText: {
-    color: COLORS.muted,
     fontSize: 8,
     fontFamily: "monospace",
     fontWeight: "700"
   },
-  deleteButton: {
-    padding: 4
+  deleteMilestoneButton: {
+    padding: 6
   },
-  deleteButtonText: {
-    fontSize: 14
+  deleteMilestoneButtonText: {
+    color: COLORS.textDim,
+    fontSize: 13,
+    fontWeight: "600"
   },
   eventDesc: {
-    color: COLORS.muted,
+    color: COLORS.textMuted,
     fontSize: 12,
     lineHeight: 18,
     marginBottom: 12
@@ -1084,6 +1153,17 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 11,
     fontFamily: "monospace"
+  },
+  confirmEventBtn: {
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8
+  },
+  confirmEventBtnText: {
+    color: "#0c0e14",
+    fontSize: 10,
+    fontWeight: "700"
   },
   daysLeft: {
     fontSize: 11,
@@ -1113,7 +1193,7 @@ const styles = StyleSheet.create({
     marginBottom: 8
   },
   promptSub: {
-    color: COLORS.muted,
+    color: COLORS.textMuted,
     fontSize: 12,
     lineHeight: 18,
     marginBottom: 16
@@ -1170,7 +1250,7 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   confirmSub: {
-    color: COLORS.muted,
+    color: COLORS.textMuted,
     fontSize: 12,
     lineHeight: 16,
     marginTop: 4,
@@ -1241,10 +1321,30 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     fontSize: 11,
     fontFamily: "monospace"
+  },
+  addClassBtn: {
+    borderWidth: 1,
+    borderColor: COLORS.accentLine,
+    borderStyle: "dashed",
+    backgroundColor: COLORS.accentBg,
+    borderRadius: 10,
+    padding: 10,
+    alignItems: "center",
+    marginTop: 8
+  },
+  addClassBtnText: {
+    color: COLORS.accent,
+    fontSize: 11,
+    fontWeight: "700"
+  },
+  classLabelText: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: "700"
   }
 });
