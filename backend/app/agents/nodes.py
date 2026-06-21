@@ -190,6 +190,9 @@ async def save_parsed_info(user_id: str, parsed: dict, store: BaseStore) -> str:
     db = firestore_async.client()
     user_profile = await sync_and_load_user_profile(store, user_id)
     
+    saved_any_info = False
+    thing = "information"
+    
     if info_type == "academic_event":
         if "confidence" not in info_data:
             info_data["confidence"] = "manual"
@@ -200,34 +203,66 @@ async def save_parsed_info(user_id: str, parsed: dict, store: BaseStore) -> str:
             user_profile["completed_discovery"] = completed
             await save_user_profile(store, user_id, user_profile)
             await db.collection("users").document(user_id).set({"completed_discovery": completed}, merge=True)
-        return f"Saved academic event: {info_data.get('title')}"
+        thing = info_data.get("title") or info_data.get("subject", "academic event")
+        saved_any_info = True
         
-    elif info_type == "timetable_update":
+    elif info_type in ["timetable", "timetable_update"]:
         await db.collection("timetables").document(user_id).set(info_data, merge=True)
+        user_profile["timetable"] = info_data
+        await save_user_profile(store, user_id, user_profile)
+        
         completed = user_profile.get("completed_discovery", [])
         if "timetable" not in completed:
             completed.append("timetable")
             user_profile["completed_discovery"] = completed
             await save_user_profile(store, user_id, user_profile)
             await db.collection("users").document(user_id).set({"completed_discovery": completed}, merge=True)
-        return "Saved college timetable updates."
+        thing = "timetable"
+        saved_any_info = True
         
-    elif info_type == "personal_schedule":
+    elif info_type in ["personal_block", "personal_schedule"]:
         doc_ref = db.collection("personal_schedule").document(user_id)
         doc = await doc_ref.get()
         existing_blocks = (doc.to_dict() or {}).get("fixed_blocks", []) if doc.exists else []
-        for new_block in info_data:
-            if not any(eb.get("title") == new_block.get("title") and eb.get("time") == new_block.get("time") for eb in existing_blocks):
-                existing_blocks.append(new_block)
+        
+        new_blocks = info_data if isinstance(info_data, list) else [info_data]
+        for nb in new_blocks:
+            if nb and isinstance(nb, dict):
+                nb_title = nb.get("title", "Routine")
+                nb_time = nb.get("time", "08:00")
+                nb_days = nb.get("days", ["daily"])
+                nb_duration = nb.get("duration_min", 30)
+                nb_type = nb.get("type", "personal")
+                nb_non_neg = nb.get("non_negotiable")
+                if nb_non_neg is None:
+                    nb_non_neg = True
+                if any(x in nb_title.lower() for x in ["meditat", "sleep"]):
+                    nb_non_neg = True
+                
+                block_to_save = {
+                    "title": nb_title,
+                    "time": nb_time,
+                    "days": nb_days,
+                    "duration_min": nb_duration,
+                    "type": nb_type,
+                    "non_negotiable": nb_non_neg
+                }
+                
+                if not any(eb.get("title") == block_to_save["title"] and eb.get("time") == block_to_save["time"] for eb in existing_blocks):
+                    existing_blocks.append(block_to_save)
+                    
         await doc_ref.set({"fixed_blocks": existing_blocks}, merge=True)
+        user_profile["personal_blocks"] = existing_blocks
+        await save_user_profile(store, user_id, user_profile)
         
         completed = user_profile.get("completed_discovery", [])
-        if "personal_schedule" not in completed:
-            completed.append("personal_schedule")
+        if "personal_blocks" not in completed:
+            completed.append("personal_blocks")
             user_profile["completed_discovery"] = completed
             await save_user_profile(store, user_id, user_profile)
             await db.collection("users").document(user_id).set({"completed_discovery": completed}, merge=True)
-        return "Saved personal fixed schedule blocks."
+        thing = new_blocks[0].get("title", "routine") if new_blocks else "routine"
+        saved_any_info = True
         
     elif info_type == "syllabus_update":
         subject = info_data.get("subject")
@@ -235,7 +270,7 @@ async def save_parsed_info(user_id: str, parsed: dict, store: BaseStore) -> str:
             doc_ref = db.collection("syllabus").document(user_id).collection("subjects").document(subject)
             doc = await doc_ref.get()
             if doc.exists:
-                existing_data = doc.to_dict()
+                existing_data = doc.to_dict() or {}
                 existing_units = existing_data.get("units", [])
                 new_units = info_data.get("units", [])
                 for nu in new_units:
@@ -250,13 +285,91 @@ async def save_parsed_info(user_id: str, parsed: dict, store: BaseStore) -> str:
                         existing_units.append(nu)
                 info_data["units"] = existing_units
             await doc_ref.set(info_data, merge=True)
+            
             completed = user_profile.get("completed_discovery", [])
             if "syllabus_status" not in completed:
                 completed.append("syllabus_status")
                 user_profile["completed_discovery"] = completed
                 await save_user_profile(store, user_id, user_profile)
                 await db.collection("users").document(user_id).set({"completed_discovery": completed}, merge=True)
-        return f"Saved syllabus progress updates for {subject}."
+        thing = f"{subject} syllabus"
+        saved_any_info = True
+        
+    elif info_type == "college_info":
+        college_name = info_data.get("college")
+        branch = info_data.get("branch")
+        semester = info_data.get("semester")
+        scheme = info_data.get("scheme")
+        
+        updates = {}
+        if college_name:
+            user_profile["college"] = college_name
+            updates["college"] = college_name
+        if branch:
+            user_profile["branch"] = branch
+            updates["branch"] = branch
+        if semester:
+            user_profile["semester"] = semester
+            updates["semester"] = semester
+        if scheme:
+            user_profile["scheme"] = scheme
+            updates["scheme"] = scheme
+            
+        if updates:
+            await save_user_profile(store, user_id, user_profile)
+            await db.collection("users").document(user_id).set(updates, merge=True)
+            
+        import asyncio
+        if college_name:
+            from app.tasks.college_scraper import run_college_calendar_scraper_task
+            asyncio.create_task(run_college_calendar_scraper_task(user_id, college_name))
+        if branch and semester and scheme:
+            from app.tasks.college_scraper import fetch_syllabus_for_student_task
+            asyncio.create_task(fetch_syllabus_for_student_task(user_id, branch, scheme, semester))
+            
+        completed = user_profile.get("completed_discovery", [])
+        if "college" not in completed:
+            completed.append("college")
+            user_profile["completed_discovery"] = completed
+            await save_user_profile(store, user_id, user_profile)
+            await db.collection("users").document(user_id).set({"completed_discovery": completed}, merge=True)
+        thing = college_name or "college"
+        saved_any_info = True
+        
+    elif info_type == "task":
+        task_ref = db.collection("tasks").document(user_id).collection("items")
+        await task_ref.add({
+            "title": info_data.get("title", "Task"),
+            "type": info_data.get("type", "reminder"),
+            "due_date": info_data.get("due_date", datetime.date.today().isoformat()),
+            "priority": info_data.get("priority", "medium"),
+            "completed": False,
+            "subject": info_data.get("subject"),
+            "created_at": datetime.datetime.utcnow().isoformat()
+        })
+        completed = user_profile.get("completed_discovery", [])
+        if "academic_events" not in completed:
+            completed.append("academic_events")
+            user_profile["completed_discovery"] = completed
+            await save_user_profile(store, user_id, user_profile)
+            await db.collection("users").document(user_id).set({"completed_discovery": completed}, merge=True)
+        thing = info_data.get("title", "task")
+        saved_any_info = True
+        
+    elif info_type == "note":
+        note_body = info_data.get("body") or parsed.get("message", "")
+        summary_data = await summarize_note_content(note_body)
+        note_ref = db.collection("notes").document(user_id).collection("items")
+        await note_ref.add({
+            "title": info_data.get("title") or summary_data.get("subject") or "Note",
+            "body": note_body,
+            "ai_summary": summary_data.get("summary", ""),
+            "subject": summary_data.get("subject", "General"),
+            "tags": info_data.get("tags") or summary_data.get("tags") or ["general"],
+            "created_at": datetime.datetime.utcnow().isoformat()
+        })
+        thing = info_data.get("title", "note")
+        saved_any_info = True
         
     elif info_type == "profile_update":
         await db.collection("users").document(user_id).set(info_data, merge=True)
@@ -275,9 +388,18 @@ async def save_parsed_info(user_id: str, parsed: dict, store: BaseStore) -> str:
             else:
                 user_profile[k] = v
         await save_user_profile(store, user_id, user_profile)
-        return "Saved user profile updates."
+        thing = "profile"
+        saved_any_info = True
         
-    return "Unknown data type."
+    else:
+        return "Unknown data type."
+        
+    if saved_any_info:
+        user_profile["last_discovery_topic"] = None
+        await save_user_profile(store, user_id, user_profile)
+        await db.collection("users").document(user_id).set({"last_discovery_topic": None}, merge=True)
+        
+    return f"Saved {thing}."
 
 async def hydrate_context(state: AgentState, store: BaseStore) -> Dict[str, Any]:
     """Hydrates the agent state with user profile, timetable, and academic context."""
@@ -1508,11 +1630,18 @@ async def save_user_info_node(state: AgentState, store: BaseStore, config: Runna
         
     else:
         confirm_msg = "Got it — I've noted that down."
+        user_profile["last_discovery_topic"] = None
+        await save_user_profile(store, user_id, user_profile)
+        await db.collection("users").document(user_id).set({"last_discovery_topic": None}, merge=True)
         return {
             "messages": [{"role": "assistant", "content": confirm_msg}],
             "asked_discovery_this_session": False
         }
         
+    user_profile["last_discovery_topic"] = None
+    await save_user_profile(store, user_id, user_profile)
+    await db.collection("users").document(user_id).set({"last_discovery_topic": None}, merge=True)
+    
     confirm_msg = f"Got it — saved your {thing}. I'll factor this into your schedule from now on."
     return {
         "messages": [{"role": "assistant", "content": confirm_msg}],
